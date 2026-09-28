@@ -55,6 +55,7 @@ import app.getknit.knit.ui.donate.DonateScreen
 import app.getknit.knit.ui.group.GroupDetailsScreen
 import app.getknit.knit.ui.lora.LoraRadioScreen
 import app.getknit.knit.ui.onboarding.OnboardingScreen
+import app.getknit.knit.ui.payment.OfflinePayNavHost
 import app.getknit.knit.ui.profile.ProfileDetailsScreen
 import app.getknit.knit.ui.profile.ProfileScreen
 import app.getknit.knit.ui.relay.InternetRelayScreen
@@ -97,6 +98,7 @@ private object Routes {
     const val SEARCH = "search"
     const val ABOUT = "about"
     const val LICENSES = "licenses"
+    const val OFFPAY = "offpay"
 
     // Backup and restore; `restore=true` is the onboarding door, which shows the restore half alone.
     const val BACKUP = "backup?restore={restore}"
@@ -167,7 +169,7 @@ fun KnitApp(startRoute: String? = null) {
     // screen for deterministic capture); otherwise gate on permissions as usual.
     val start =
         startRoute
-            ?: if (onboarded) Routes.CHAT_LIST else Routes.ONBOARDING
+            ?: if (onboarded) Routes.OFFPAY else Routes.ONBOARDING
 
     // Start the mesh service whenever the user is past onboarding and has not stopped it from the
     // notification. The flag is read from the store at each decision, never from a collected copy — see
@@ -340,11 +342,18 @@ fun KnitApp(startRoute: String? = null) {
         composable(Routes.ONBOARDING) {
             OnboardingScreen(
                 onReady = {
-                    navController.navigate(Routes.CHAT_LIST) {
+                    navController.navigate(Routes.OFFPAY) {
                         popUpTo(Routes.ONBOARDING) { inclusive = true }
                     }
                 },
                 onRestore = { navController.navigate(Routes.backup(restoreOnly = true)) },
+            )
+        }
+        composable(Routes.OFFPAY) {
+            OfflinePayNavHost(
+                onBackToKnit = {
+                    navController.navigate(Routes.CHAT_LIST)
+                },
             )
         }
         composable(
@@ -373,6 +382,7 @@ fun KnitApp(startRoute: String? = null) {
                 onOpenMessageRequests = { navController.navigate(Routes.MESSAGE_REQUESTS) },
                 onOpenDonate = { navController.navigate(Routes.DONATE) },
                 onOpenAddContact = { navController.navigate(Routes.ADD_CONTACT) },
+                onOpenOffPay = { navController.navigate(Routes.OFFPAY) },
             )
         }
         composable(Routes.CONTACTS) {

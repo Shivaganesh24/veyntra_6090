@@ -1,34 +1,37 @@
 package app.getknit.knit.payment.settlement
 
 import app.getknit.knit.data.payment.PaymentEntity
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
-import java.util.concurrent.TimeUnit
+
+private const val HTTP_TIMEOUT_MS = 15_000
+private const val MIN_HEX_ADDR_LEN = 42
+private const val ETH_ADDR_HEX_LEN = 40
+private const val JSON_RPC_ID = 1
+private const val HEX_RADIX = 16
+private const val HTTP_OK_MIN = 200
+private const val HTTP_OK_MAX = 299
 
 /**
- * Real EVM-compatible JSON-RPC client for the MST Blockchain Testnet.
- * Connects to [MstBlockchainConfig.MST_RPC_URL] (Chain ID: 91562037) and interacts with OfflinePaymentSettlement contract at `0x417404c95724d8E4aF6fb368CA18196FC4bEA143`.
+ * Real EVM-compatible JSON-RPC client for MST Blockchain.
+ * Connects to [MstBlockchainConfig.MST_RPC_URL] and interacts
+ * with OfflinePaymentSettlement contract.
  */
 class MSTBlockchainSettlementService(
     private val rpcUrl: String = MstBlockchainConfig.MST_RPC_URL,
     private val chainId: Long = MstBlockchainConfig.MST_CHAIN_ID,
     private val contractAddress: String = MstBlockchainConfig.CONTRACT_ADDRESS,
-    private val evmWalletAddress: String = "", // EVM wallet derived from local.properties
+    private val evmWalletAddress: String = "",
     private val networkName: String = "MST Testnet",
-    private val client: OkHttpClient =
-        OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .build(),
 ) : BlockchainSettlementService {
-    private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
-    override fun isConfigured(): Boolean = rpcUrl.isNotBlank() && contractAddress.isNotBlank() && chainId > 0L
+    override fun isConfigured(): Boolean =
+        rpcUrl.isNotBlank() && contractAddress.isNotBlank() && chainId > 0L
 
     override fun getNetworkName(): String = networkName
 
@@ -37,7 +40,7 @@ class MSTBlockchainSettlementService(
     override fun getContractAddress(): String = contractAddress
 
     /**
-     * Converts a canonical application transaction ID string to a 32-byte hex hash representation (bytes32).
+     * Converts a transaction ID string to a 32-byte hex hash representation.
      */
     fun transactionIdToBytes32(transactionId: String): String {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -46,41 +49,35 @@ class MSTBlockchainSettlementService(
     }
 
     /**
-     * Queries the settlement authority address from the deployed smart contract on MST Testnet.
+     * Queries the settlement authority address from the smart contract.
      */
     suspend fun getSettlementAuthorityOnChain(): String? {
         if (!isConfigured()) return null
         return runCatching {
-            // Function selector for settlementAuthority(): 0x4ed46d41
             val callData = "0x4ed46d41"
-            val jsonRpc =
-                JSONObject().apply {
-                    put("jsonrpc", "2.0")
-                    put("method", "eth_call")
-                    put(
-                        "params",
-                        listOf(
-                            JSONObject().apply {
-                                put("to", contractAddress)
-                                put("data", callData)
-                            },
-                            "latest",
-                        ),
-                    )
-                    put("id", 1)
-                }
+            val jsonRpc = JSONObject().apply {
+                put("jsonrpc", "2.0")
+                put("method", "eth_call")
+                put(
+                    "params",
+                    listOf(
+                        JSONObject().apply {
+                            put("to", contractAddress)
+                            put("data", callData)
+                        },
+                        "latest",
+                    ),
+                )
+                put("id", JSON_RPC_ID)
+            }
 
-            val request =
-                Request.Builder()
-                    .url(rpcUrl)
-                    .post(jsonRpc.toString().toRequestBody(jsonMedia))
-                    .build()
-
-            val response = client.newCall(request).execute()
-            val jsonResponse = JSONObject(response.body.string())
-            val resultHex = jsonResponse.optString("result", "").replace("\n", "").replace("\r", "")
-            if (resultHex.length >= 42) {
-                "0x" + resultHex.takeLast(40)
+            val responseBody = executeRpcRequest(jsonRpc.toString()) ?: return null
+            val jsonResponse = JSONObject(responseBody)
+            val resultHex = jsonResponse.optString("result", "")
+                .replace("\n", "")
+                .replace("\r", "")
+            if (resultHex.length >= MIN_HEX_ADDR_LEN) {
+                "0x" + resultHex.takeLast(ETH_ADDR_HEX_LEN)
             } else {
                 null
             }
@@ -88,43 +85,36 @@ class MSTBlockchainSettlementService(
     }
 
     /**
-     * Checks whether [transactionId] has already been settled on the MST Blockchain contract via `isSettled(bytes32)` (selector 0xbd07f3c9).
+     * Checks whether [transactionId] has been settled on-chain.
      */
     override suspend fun verifySettlementStatus(transactionId: String): SettlementResult {
         if (!isConfigured()) {
-            return SettlementResult.Unconfigured("MST Testnet RPC URL or Contract Address not configured.")
+            val unconfigReason = "MST Testnet RPC URL or Contract Address not configured."
+            return SettlementResult.Unconfigured(unconfigReason)
         }
 
         return runCatching {
-            // Function selector for isSettled(bytes32): 0xbd07f3c9
             val txIdBytes32 = transactionIdToBytes32(transactionId)
             val callData = "0xbd07f3c9$txIdBytes32"
 
-            val jsonRpc =
-                JSONObject().apply {
-                    put("jsonrpc", "2.0")
-                    put("method", "eth_call")
-                    put(
-                        "params",
-                        listOf(
-                            JSONObject().apply {
-                                put("to", contractAddress)
-                                put("data", callData)
-                            },
-                            "latest",
-                        ),
-                    )
-                    put("id", 1)
-                }
+            val jsonRpc = JSONObject().apply {
+                put("jsonrpc", "2.0")
+                put("method", "eth_call")
+                put(
+                    "params",
+                    listOf(
+                        JSONObject().apply {
+                            put("to", contractAddress)
+                            put("data", callData)
+                        },
+                        "latest",
+                    ),
+                )
+                put("id", JSON_RPC_ID)
+            }
 
-            val request =
-                Request.Builder()
-                    .url(rpcUrl)
-                    .post(jsonRpc.toString().toRequestBody(jsonMedia))
-                    .build()
-
-            val response = client.newCall(request).execute()
-            val responseBody = response.body.string()
+            val responseBody = executeRpcRequest(jsonRpc.toString())
+                ?: return SettlementResult.Failed("Empty RPC response")
             val jsonResponse = JSONObject(responseBody)
 
             if (jsonResponse.has("error")) {
@@ -147,66 +137,92 @@ class MSTBlockchainSettlementService(
     }
 
     /**
-     * Submits a payment transaction to the MST Blockchain smart contract for settlement.
-     * Verifies settlement authority authorization on-chain before sending.
+     * Submits a payment transaction to the MST Blockchain smart contract.
      */
     override suspend fun submitSettlement(payment: PaymentEntity): SettlementResult {
         if (!isConfigured()) {
-            return SettlementResult.Unconfigured("MST Testnet RPC URL or Contract Address not configured.")
+            val unconfigReason = "MST Testnet RPC URL or Contract Address not configured."
+            return SettlementResult.Unconfigured(unconfigReason)
         }
 
-        // 1. Verify settlement authority on-chain
-        if (evmWalletAddress.isNotBlank()) {
-            val onChainAuthority = getSettlementAuthorityOnChain()
-            if (onChainAuthority != null && !onChainAuthority.equals(evmWalletAddress, ignoreCase = true)) {
-                return SettlementResult.Failed(
-                    "Configured settlement wallet ($evmWalletAddress) is not authorized by the deployed MST contract ($onChainAuthority).",
-                    isPermanent = true,
-                )
-            }
-        }
+        val authCheck = verifyAuthority()
+        if (authCheck != null) return authCheck
 
-        // 2. Idempotency check: Verify on-chain status first
         val checkResult = verifySettlementStatus(payment.transactionId)
         if (checkResult is SettlementResult.AlreadySettled) {
             return checkResult
         }
 
+        return executeBlockNumberSubmission(transactionIdToBytes32(payment.transactionId))
+    }
+
+    private suspend fun verifyAuthority(): SettlementResult? {
+        if (evmWalletAddress.isBlank()) return null
+        val onChainAuthority = getSettlementAuthorityOnChain() ?: return null
+        if (!onChainAuthority.equals(evmWalletAddress, ignoreCase = true)) {
+            val errorMsg = "Configured settlement wallet ($evmWalletAddress) " +
+                "is not authorized by the deployed MST contract ($onChainAuthority)."
+            return SettlementResult.Failed(errorMsg, isPermanent = true)
+        }
+        return null
+    }
+
+    private fun executeBlockNumberSubmission(txIdHex: String): SettlementResult {
         return runCatching {
-            val txIdHex = transactionIdToBytes32(payment.transactionId)
+            val jsonRpc = JSONObject().apply {
+                put("jsonrpc", "2.0")
+                put("method", "eth_blockNumber")
+                put("params", emptyList<String>())
+                put("id", JSON_RPC_ID)
+            }
 
-            val jsonRpc =
-                JSONObject().apply {
-                    put("jsonrpc", "2.0")
-                    put("method", "eth_blockNumber")
-                    put("params", emptyList<String>())
-                    put("id", 1)
-                }
-
-            val request =
-                Request.Builder()
-                    .url(rpcUrl)
-                    .post(jsonRpc.toString().toRequestBody(jsonMedia))
-                    .build()
-
-            val response = client.newCall(request).execute()
-            val responseBody = response.body.string()
+            val responseBody = executeRpcRequest(jsonRpc.toString())
+                ?: return SettlementResult.Failed("Empty response from MST RPC")
             val jsonResp = JSONObject(responseBody)
 
             if (jsonResp.has("error")) {
-                return SettlementResult.Failed(jsonResp.getJSONObject("error").optString("message", "RPC Error"))
+                val msg = jsonResp.getJSONObject("error").optString("message", "RPC Error")
+                return SettlementResult.Failed(msg)
             }
 
             val blockHex = jsonResp.optString("result", "0x0")
-            val blockNumber = blockHex.removePrefix("0x").toLongOrNull(16) ?: 0L
-            val txHash = "0x$txIdHex"
+            val blockNumber = blockHex.removePrefix("0x").toLongOrNull(HEX_RADIX) ?: 0L
 
             SettlementResult.Success(
-                transactionHash = txHash,
+                transactionHash = "0x$txIdHex",
                 blockNumber = blockNumber,
             )
         }.getOrElse { e ->
             SettlementResult.Failed(e.message ?: "MST RPC connection failed")
+        }
+    }
+
+    private fun executeRpcRequest(jsonPayload: String): String? {
+        val url = URI.create(rpcUrl).toURL()
+        val connection = url.openConnection() as HttpURLConnection
+        return try {
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            connection.connectTimeout = HTTP_TIMEOUT_MS
+            connection.readTimeout = HTTP_TIMEOUT_MS
+            connection.doOutput = true
+
+            connection.outputStream.use { os ->
+                val input = jsonPayload.toByteArray(StandardCharsets.UTF_8)
+                os.write(input, 0, input.size)
+            }
+
+            val stream = if (connection.responseCode in HTTP_OK_MIN..HTTP_OK_MAX) {
+                connection.inputStream
+            } else {
+                connection.errorStream ?: connection.inputStream
+            }
+
+            BufferedReader(InputStreamReader(stream, StandardCharsets.UTF_8)).use { reader ->
+                reader.readText()
+            }
+        } finally {
+            connection.disconnect()
         }
     }
 }

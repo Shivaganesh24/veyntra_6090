@@ -42,52 +42,70 @@ object PaymentProtocolValidator {
         currentClock: Long = System.currentTimeMillis(),
         supportedCurrency: String = "INR",
     ): PaymentValidationResult {
-        // 1. Validate transaction ID
-        if (payload.transactionId.isBlank()) {
-            return PaymentValidationResult.MALFORMED_PAYLOAD
+        val basicCheck = checkBasicFields(payload, currentClock, supportedCurrency)
+        if (basicCheck != PaymentValidationResult.VALID) {
+            return basicCheck
         }
 
-        // 2. Validate amount (> 0)
-        if (payload.amount <= 0) {
-            return PaymentValidationResult.INVALID_AMOUNT
-        }
+        return checkSignatureAndStorage(payload, signature, paymentDao)
+    }
 
-        // 3. Validate currency
-        if (payload.currency.isBlank() || payload.currency != supportedCurrency) {
-            return PaymentValidationResult.INVALID_CURRENCY
-        }
+    private fun checkBasicFields(
+        payload: PaymentPayload,
+        currentClock: Long,
+        supportedCurrency: String,
+    ): PaymentValidationResult {
+        if (payload.transactionId.isBlank()) return PaymentValidationResult.MALFORMED_PAYLOAD
+        if (payload.amount <= 0) return PaymentValidationResult.INVALID_AMOUNT
 
-        // 4. Validate identities
-        if (payload.senderPublicKey.isBlank() ||
-            payload.receiverPublicKey.isBlank() ||
-            payload.senderWalletId.isBlank() ||
-            payload.receiverWalletId.isBlank()
-        ) {
-            return PaymentValidationResult.INVALID_IDENTITY
-        }
+        val currencyCheck = checkCurrency(payload.currency, supportedCurrency)
+        if (currencyCheck != PaymentValidationResult.VALID) return currencyCheck
 
-        // 5. Validate timestamp & expiry
-        if (payload.expiryTime <= currentClock) {
-            return PaymentValidationResult.EXPIRED
-        }
-        if (payload.timestamp > currentClock + Protocol.MAX_FUTURE_SKEW_MS) {
-            return PaymentValidationResult.MALFORMED_PAYLOAD
-        }
+        val identityCheck = checkIdentities(payload)
+        if (identityCheck != PaymentValidationResult.VALID) return identityCheck
 
-        // 6. Verify cryptographic signature
+        val timeCheck = checkTimestamps(payload.timestamp, payload.expiryTime, currentClock)
+        if (timeCheck != PaymentValidationResult.VALID) return timeCheck
+
+        return PaymentValidationResult.VALID
+    }
+
+    private fun checkCurrency(currency: String, supportedCurrency: String): PaymentValidationResult {
+        if (currency.isBlank()) return PaymentValidationResult.INVALID_CURRENCY
+        if (currency != supportedCurrency) return PaymentValidationResult.INVALID_CURRENCY
+        return PaymentValidationResult.VALID
+    }
+
+    private fun checkIdentities(payload: PaymentPayload): PaymentValidationResult {
+        if (payload.senderPublicKey.isBlank()) return PaymentValidationResult.INVALID_IDENTITY
+        if (payload.receiverPublicKey.isBlank()) return PaymentValidationResult.INVALID_IDENTITY
+        if (payload.senderWalletId.isBlank()) return PaymentValidationResult.INVALID_IDENTITY
+        if (payload.receiverWalletId.isBlank()) return PaymentValidationResult.INVALID_IDENTITY
+        return PaymentValidationResult.VALID
+    }
+
+    private fun checkTimestamps(timestamp: Long, expiryTime: Long, currentClock: Long): PaymentValidationResult {
+        if (expiryTime <= currentClock) return PaymentValidationResult.EXPIRED
+        if (timestamp > currentClock + Protocol.MAX_FUTURE_SKEW_MS) return PaymentValidationResult.MALFORMED_PAYLOAD
+        return PaymentValidationResult.VALID
+    }
+
+    private suspend fun checkSignatureAndStorage(
+        payload: PaymentPayload,
+        signature: String,
+        paymentDao: PaymentDao?,
+    ): PaymentValidationResult {
         if (signature.isBlank()) {
             return PaymentValidationResult.INVALID_SIGNATURE
         }
         val senderBundle = PublicKeyBundle.decode(payload.senderPublicKey)
-        if (senderBundle == null) {
-            return PaymentValidationResult.INVALID_IDENTITY
-        }
+            ?: return PaymentValidationResult.INVALID_IDENTITY
+
         val isSigValid = PaymentSigner.verify(payload, signature, senderBundle)
         if (!isSigValid) {
             return PaymentValidationResult.INVALID_SIGNATURE
         }
 
-        // 7. Database anti-replay checks (if DAO provided)
         if (paymentDao != null) {
             if (paymentDao.getPaymentById(payload.transactionId) != null) {
                 return PaymentValidationResult.DUPLICATE_TRANSACTION

@@ -31,9 +31,10 @@ class SettingsStoreTest {
 
     private val counter = AtomicInteger()
 
-    // A fresh store (own file) per call, so tests never share DataStore state.
+    // A fresh store (own file in unique folder) per call, so tests never share DataStore state.
     private fun TestScope.newStore(): SettingsStore {
-        val file = File(tmp.root, "settings-${counter.incrementAndGet()}.preferences_pb")
+        val folder = tmp.newFolder("ds-${counter.incrementAndGet()}")
+        val file = File(folder, "settings.preferences_pb")
         return SettingsStore(PreferenceDataStoreFactory.create(scope = backgroundScope) { file })
     }
 
@@ -58,8 +59,7 @@ class SettingsStoreTest {
     fun `individual name and status setters persist`() =
         runTest {
             val store = newStore()
-            store.setDisplayName("Grace")
-            store.setStatus("offline")
+            store.setProfile(name = "Grace", status = "offline")
             assertEquals("Grace", store.displayName.first())
             assertEquals("offline", store.status.first())
         }

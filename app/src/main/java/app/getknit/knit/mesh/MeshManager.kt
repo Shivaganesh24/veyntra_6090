@@ -46,6 +46,7 @@ import app.getknit.knit.mesh.crypto.sealBytes
 import app.getknit.knit.mesh.lora.LoraCtl
 import app.getknit.knit.mesh.lora.LoraFramePolicy
 import app.getknit.knit.mesh.lora.LoraSizeHint
+import app.getknit.knit.data.payment.PaymentRepository
 import app.getknit.knit.mesh.protocol.ChatContent
 import app.getknit.knit.mesh.protocol.CommonsPost
 import app.getknit.knit.mesh.protocol.EncEnvelope
@@ -203,6 +204,7 @@ class MeshManager(
     // like publicChannel because the manager sends through this class. The default admits nothing. Not a
     // property: the only reader is [pipeline]'s initializer, which hands it straight to onTransferCtl.
     onTransferSignal: suspend (senderId: String, payload: TransferPayload, sentAt: Long) -> Boolean = { _, _, _ -> false },
+    private val paymentRepository: PaymentRepository? = null,
 ) : MeshController,
     TransferSignals,
     ProfileFrameSource,
@@ -401,6 +403,7 @@ class MeshManager(
             keyExchange = keyExchange,
             ackSync = ackSync,
             pendingInbound = pendingInbound,
+            paymentRepository = paymentRepository,
             pendingGroupKeys = pendingGroupKeys,
             typingTracker = typingTracker,
             ratchet = ratchet,

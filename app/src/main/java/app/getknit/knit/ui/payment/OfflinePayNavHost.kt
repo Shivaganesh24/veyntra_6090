@@ -6,16 +6,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import org.koin.androidx.compose.koinViewModel
 
-object PaymentRoutes {
-    const val HOME = "payment_home"
-    const val PAY = "payment_pay"
-    const val RECEIVE = "payment_receive"
-    const val TRANSACTIONS = "payment_transactions"
-    const val MESH = "payment_mesh"
-    const val WALLET = "payment_wallet"
-    const val SETTINGS = "payment_settings"
-}
-
 @Composable
 fun OfflinePayNavHost(
     onBackToKnit: () -> Unit,
@@ -82,4 +72,15 @@ fun OfflinePayNavHost(
             )
         }
     }
+}
+
+@Suppress("MatchingDeclarationName")
+object PaymentRoutes {
+    const val HOME = "payment_home"
+    const val PAY = "payment_pay"
+    const val RECEIVE = "payment_receive"
+    const val TRANSACTIONS = "payment_transactions"
+    const val MESH = "payment_mesh"
+    const val WALLET = "payment_wallet"
+    const val SETTINGS = "payment_settings"
 }

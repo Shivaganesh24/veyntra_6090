@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions")
+
 package app.getknit.knit.mesh
 
 import android.util.Log
@@ -37,6 +39,7 @@ import app.getknit.knit.mesh.crypto.AttachmentCrypto
 import app.getknit.knit.mesh.crypto.MessageContent
 import app.getknit.knit.mesh.crypto.MessageContentV2
 import app.getknit.knit.mesh.crypto.MessageCrypto
+import app.getknit.knit.data.payment.PaymentRepository
 import app.getknit.knit.mesh.crypto.PublicKeyBundle
 import app.getknit.knit.mesh.crypto.XeddsaVerify
 import app.getknit.knit.mesh.crypto.b64
@@ -60,6 +63,7 @@ import app.getknit.knit.mesh.protocol.GroupLeaveContent
 import app.getknit.knit.mesh.protocol.KeyReqContent
 import app.getknit.knit.mesh.protocol.LinkPreviewBlob
 import app.getknit.knit.mesh.protocol.ProfileContent
+import app.getknit.knit.payment.protocol.PaymentPayload
 import app.getknit.knit.mesh.protocol.ProfilePayload
 import app.getknit.knit.mesh.protocol.Protocol
 import app.getknit.knit.mesh.protocol.ReactionContent
@@ -127,6 +131,7 @@ class InboundPipeline(
     private val keyExchange: KeyExchange,
     private val ackSync: AckSync,
     private val pendingInbound: PendingInbound,
+    private val paymentRepository: PaymentRepository? = null,
     // Seeds that outran their group's first frame, parked before the ratchet commit and replayed by
     // [reconcileGroup] once the roster lands. Defaults for the rigs that never see a group-key ctl.
     private val pendingGroupKeys: PendingGroupKeys = PendingGroupKeys(metrics = metrics),
@@ -328,6 +333,26 @@ class InboundPipeline(
                 handleReaction(env)
             }
 
+            FrameType.BLOB_REQ, FrameType.KEY_REQ, FrameType.TYPING -> {
+                handleControlFrame(env, fromNodeId)
+            }
+
+            // A commons post reaches this device through the spool plane's own door ([deliverCommonsPost]),
+            // never a radio: a copy met on a link is a stray (a member re-flooding by hand) and is relayed
+            // like any unknown type by the router and delivered by nobody. Named so the `else` below stays
+            // for types nobody has minted yet.
+            FrameType.COMMONS -> {}
+
+            FrameType.PAYMENT -> {
+                handlePayment(env, wire, fromNodeId)
+            }
+
+            else -> {}
+        }
+    }
+
+    private suspend fun handleControlFrame(env: RelayEnvelope, fromNodeId: String) {
+        when (env.type) {
             FrameType.BLOB_REQ -> {
                 WireCodec.decodePayload<BlobReqContent>(env.payload)?.let { blobExchange.onRequest(it.hash, fromNodeId) }
             }
@@ -339,15 +364,17 @@ class InboundPipeline(
             FrameType.TYPING -> {
                 handleTyping(env)
             }
-
-            // A commons post reaches this device through the spool plane's own door ([deliverCommonsPost]),
-            // never a radio: a copy met on a link is a stray (a member re-flooding by hand) and is relayed
-            // like any unknown type by the router and delivered by nobody. Named so the `else` below stays
-            // for types nobody has minted yet.
-            FrameType.COMMONS -> {}
-
-            else -> {}
         }
+    }
+
+    private suspend fun handlePayment(
+        env: RelayEnvelope,
+        wire: WireEnvelope,
+        fromNodeId: String,
+    ) {
+        val payload = WireCodec.decodePayload<PaymentPayload>(env.payload) ?: return
+        val signature = b64(wire.sig)
+        paymentRepository?.processInboundPayment(payload, signature, env, wire, fromNodeId)
     }
 
     /**

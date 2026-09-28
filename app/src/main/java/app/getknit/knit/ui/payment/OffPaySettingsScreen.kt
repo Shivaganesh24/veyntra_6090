@@ -100,8 +100,12 @@ fun OffPaySettingsScreen(
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("Network: ${MstBlockchainConfig.NATIVE_CURRENCY_SYMBOL} (${MstBlockchainConfig.MST_CHAIN_ID})")
-                    Text("Contract: ${MstBlockchainConfig.CONTRACT_ADDRESS.take(12)}...${MstBlockchainConfig.CONTRACT_ADDRESS.takeLast(6)}", fontSize = 11.sp, color = Color.Gray)
+                    val networkLabel = "Network: ${MstBlockchainConfig.NATIVE_CURRENCY_SYMBOL} " +
+                        "(${MstBlockchainConfig.MST_CHAIN_ID})"
+                    Text(networkLabel)
+                    val shortContract = MstBlockchainConfig.CONTRACT_ADDRESS.take(12) + "..." +
+                        MstBlockchainConfig.CONTRACT_ADDRESS.takeLast(6)
+                    Text("Contract: $shortContract", fontSize = 11.sp, color = Color.Gray)
 
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -130,8 +134,11 @@ fun OffPaySettingsScreen(
                         color = MaterialTheme.colorScheme.primary,
                     )
                     Spacer(modifier = Modifier.height(4.dp))
+                    val descText = "Send offline payments over nearby devices when the " +
+                        "Internet isn't available, and settle securely on MST " +
+                        "Blockchain when connectivity returns."
                     Text(
-                        "Send offline payments over nearby devices when the Internet isn't available, and settle securely on MST Blockchain when connectivity returns.",
+                        descText,
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

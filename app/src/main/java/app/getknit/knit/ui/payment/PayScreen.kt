@@ -47,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.getknit.knit.mesh.Peer
+import app.getknit.knit.ui.scan.QrScanner
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,10 +63,45 @@ fun PayScreen(
     var receiverPublicKey by remember { mutableStateOf("") }
     var receiverName by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("100") }
+    var isScanning by remember { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val availableBalance = wallet?.availableBalance ?: 0L
+    val myWalletId = wallet?.walletId ?: ""
+
+    if (isScanning) {
+        QrScanner(
+            onResult = { qrText ->
+                isScanning = false
+                val parsed = OffPayQrPayload.decode(qrText)
+                if (parsed != null && parsed.walletId.isNotBlank()) {
+                    if (myWalletId.isNotBlank() && parsed.walletId == myWalletId) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Cannot send payment to your own wallet!")
+                        }
+                    } else {
+                        receiverWalletId = parsed.walletId
+                        receiverPublicKey = parsed.publicKey
+                        receiverName = parsed.walletId
+                        if (parsed.amount > 0L) {
+                            amountText = (parsed.amount / 100L).toString()
+                        }
+                        scope.launch {
+                            snackbarHostState.showSnackbar("✓ Recipient QR Scanned: ${parsed.walletId}")
+                        }
+                    }
+                } else {
+                    scope.launch {
+                        snackbarHostState.showSnackbar("Invalid or unsupported OffPay QR Code")
+                    }
+                }
+            },
+            onCancel = { isScanning = false },
+        )
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -130,11 +166,7 @@ fun PayScreen(
                 label = { Text("Recipient OffPay ID / Public Key") },
                 modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {
-                    IconButton(onClick = {
-                        scope.launch {
-                            snackbarHostState.showSnackbar("Camera QR Scanner active. Tap a nearby device or enter ID.")
-                        }
-                    }) {
+                    IconButton(onClick = { isScanning = true }) {
                         Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan QR")
                     }
                 },
@@ -162,7 +194,7 @@ fun PayScreen(
                     color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
                     Text(
-                        "Searching for nearby OffPay devices... Or enter recipient ID above.",
+                        "Searching for nearby OffPay devices... Or tap QR icon / enter ID above.",
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -189,6 +221,7 @@ fun PayScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Button(
+                enabled = !isSubmitting,
                 onClick = {
                     val amountPaise = (amountText.toLongOrNull() ?: 0L) * 100L
                     if (amountPaise <= 0L) {
@@ -207,18 +240,27 @@ fun PayScreen(
                         scope.launch { snackbarHostState.showSnackbar("Select or enter a recipient OffPay ID") }
                         return@Button
                     }
+                    if (myWalletId.isNotBlank() && receiverWalletId == myWalletId) {
+                        scope.launch { snackbarHostState.showSnackbar("Cannot send payment to your own wallet!") }
+                        return@Button
+                    }
 
+                    isSubmitting = true
                     viewModel.sendPayment(
                         receiverWalletId = receiverWalletId,
                         receiverPublicKey = if (receiverPublicKey.isNotBlank()) receiverPublicKey else receiverWalletId,
                         amount = amountPaise,
                         onSuccess = {
+                            isSubmitting = false
                             scope.launch {
-                                snackbarHostState.showSnackbar("✓ Payment Created — Sent through nearby device network. Waiting for Internet to settle.")
+                                val msg = "✓ Payment Created — Sent through nearby device network. " +
+                                    "Waiting for Internet to settle."
+                                snackbarHostState.showSnackbar(msg)
                             }
                             onBack()
                         },
                         onError = { err ->
+                            isSubmitting = false
                             scope.launch { snackbarHostState.showSnackbar(err) }
                         },
                     )
@@ -229,7 +271,7 @@ fun PayScreen(
             ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("↑ Send Offline (₹${amountText.ifEmpty { "0" }})")
+                Text(if (isSubmitting) "Processing..." else "↑ Send Offline (₹${amountText.ifEmpty { "0" }})")
             }
         }
     }
@@ -245,7 +287,11 @@ fun PeerSelectionCard(
         onClick = onSelect,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            },
         ),
     ) {
         Row(

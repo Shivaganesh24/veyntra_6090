@@ -23,9 +23,23 @@ interface PaymentDao {
     @Query("SELECT * FROM payments ORDER BY timestamp DESC")
     suspend fun getAllPayments(): List<PaymentEntity>
 
-    @Query("SELECT * FROM payments WHERE status IN ('OFFLINE_SENT', 'RECEIVED', 'VERIFIED', 'PENDING_SETTLEMENT') ORDER BY timestamp ASC")
+    @Query(
+        "SELECT * FROM payments WHERE status IN " +
+            "('OFFLINE_SENT', 'RECEIVED', 'VERIFIED', 'PENDING_SETTLEMENT') " +
+            "ORDER BY timestamp ASC",
+    )
     suspend fun getPendingSettlementPayments(): List<PaymentEntity>
 
-    @Query("UPDATE payments SET status = :status, settlementStatus = :settlementStatus, blockchainTransactionHash = COALESCE(:txHash, blockchainTransactionHash) WHERE transactionId = :transactionId")
-    suspend fun updateStatus(transactionId: String, status: String, settlementStatus: String, txHash: String? = null)
+    @Query(
+        "UPDATE payments SET status = :status, " +
+            "settlementStatus = :settlementStatus, " +
+            "blockchainTransactionHash = COALESCE(:txHash, blockchainTransactionHash) " +
+            "WHERE transactionId = :transactionId",
+    )
+    suspend fun updateStatus(
+        transactionId: String,
+        status: String,
+        settlementStatus: String,
+        txHash: String? = null,
+    )
 }

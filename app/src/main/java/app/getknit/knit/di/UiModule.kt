@@ -23,6 +23,7 @@ import app.getknit.knit.ui.diagnostics.DiagnosticsViewModel
 import app.getknit.knit.ui.group.GroupDetailsViewModel
 import app.getknit.knit.ui.lora.LoraRadioViewModel
 import app.getknit.knit.ui.onboarding.OnboardingViewModel
+import app.getknit.knit.ui.payment.PaymentViewModel
 import app.getknit.knit.ui.profile.ProfileDetailsViewModel
 import app.getknit.knit.ui.profile.ProfileViewModel
 import app.getknit.knit.ui.relay.InternetRelayViewModel
@@ -155,4 +156,5 @@ val uiModule =
             )
         }
         viewModel { LoraRadioViewModel(get(), get(), get(), get()) }
+        viewModel { PaymentViewModel(get(), get(), get(), get(), get(), get(), get()) }
     }
