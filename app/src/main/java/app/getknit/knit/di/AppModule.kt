@@ -32,6 +32,7 @@ import app.getknit.knit.data.draft.DraftRepository
 import app.getknit.knit.data.emoji.AndroidGlyphCheck
 import app.getknit.knit.data.emoji.EmojiCatalogLoader
 import app.getknit.knit.data.forward.ForwardRepository
+import app.getknit.knit.data.payment.PaymentRepository
 import app.getknit.knit.data.peer.MetPeerRepository
 import app.getknit.knit.data.ratchet.GroupRatchetRepository
 import app.getknit.knit.data.ratchet.GroupRootRepository
@@ -61,6 +62,9 @@ import app.getknit.knit.net.AndroidInternetGate
 import app.getknit.knit.net.InternetGate
 import app.getknit.knit.notifications.MessageNotifier
 import app.getknit.knit.notifications.Notifier
+import app.getknit.knit.payment.reconciliation.OfflineReconciliationManager
+import app.getknit.knit.payment.settlement.BlockchainSettlementService
+import app.getknit.knit.payment.settlement.MSTBlockchainSettlementService
 import app.getknit.knit.review.ReviewPrompter
 import app.getknit.knit.ui.RouteInbox
 import app.getknit.knit.ui.addcontact.ContactCardInbox
@@ -178,6 +182,11 @@ val appModule =
         single { get<KnitDatabase>().draftDao() }
         single { get<KnitDatabase>().commonsDao() }
         single { get<KnitDatabase>().metPeerDao() }
+        single { get<KnitDatabase>().paymentDao() }
+        single { get<KnitDatabase>().walletDao() }
+        single { PaymentRepository(get(), get(), get()) }
+        single<BlockchainSettlementService> { MSTBlockchainSettlementService() }
+        single { OfflineReconciliationManager(get(), get(), get(), get<CoroutineScope>()) }
         single { MessageRepository(get()) }
         single { PeerRepository(get(), get<SettingsStore>(), get<Identity>()) }
         // Crash reports. The capture-side CrashStore is built by hand in KnitApplication.onCreate BEFORE

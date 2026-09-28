@@ -1,5 +1,6 @@
 package app.getknit.knit.data.payment
 
+import android.util.Log
 import app.getknit.knit.data.crypto.IdentityKeyStore
 import app.getknit.knit.mesh.protocol.RelayEnvelope
 import app.getknit.knit.mesh.protocol.WireEnvelope
@@ -172,6 +173,7 @@ class PaymentRepository(
      * Processes an incoming payment frame received from the mesh network.
      * Offline received payments increase [pendingInbound] ONLY and are NOT spendable until settled.
      */
+    @Suppress("UnusedParameter")
     suspend fun processInboundPayment(
         payload: PaymentPayload,
         signature: String,
@@ -204,6 +206,7 @@ class PaymentRepository(
         }
 
         // 4. Record Payment as PENDING_SETTLEMENT
+        Log.d("PaymentRepository", "Processing inbound payment ${env.id} from node $fromNodeId")
         val entity =
             PaymentEntity(
                 transactionId = payload.transactionId,

@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DownloadForOffline
@@ -130,6 +131,7 @@ fun ChatListScreen(
     onOpenMessageRequests: () -> Unit,
     onOpenDonate: () -> Unit,
     onOpenAddContact: () -> Unit,
+    onOpenOffPay: () -> Unit = {},
     viewModel: ChatListViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -158,6 +160,7 @@ fun ChatListScreen(
         onOpenMessageRequests = onOpenMessageRequests,
         onOpenDonate = onOpenDonate,
         onOpenAddContact = onOpenAddContact,
+        onOpenOffPay = onOpenOffPay,
         onShareApp = { showShareApp = true },
         onOpenRadioSettings = { warning -> openRadioSettings(context, warning) },
         onDismissRadioWarning = viewModel::dismissRadioWarning,
@@ -238,6 +241,7 @@ internal fun ChatListScreenContent(
     onOpenDonate: () -> Unit,
     onShareApp: () -> Unit,
     onOpenAddContact: () -> Unit,
+    onOpenOffPay: () -> Unit = {},
     onOpenRadioSettings: (RadioWarning) -> Unit,
     onDismissRadioWarning: () -> Unit,
     onSignOut: () -> Unit,
@@ -365,6 +369,14 @@ internal fun ChatListScreenContent(
                                 onClick = {
                                     menuOpen = false
                                     onOpenDonate()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("MST OfflinePay") },
+                                leadingIcon = { Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null) },
+                                onClick = {
+                                    menuOpen = false
+                                    onOpenOffPay()
                                 },
                             )
                             DropdownMenuItem(

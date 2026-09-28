@@ -63,12 +63,13 @@ class PaymentMeshIntegrationTest {
         paymentDao = db.paymentDao()
         walletDao = db.walletDao()
 
-        senderHybridPrivate = KeysetHandle.generateNew(KeyTemplates.get("DHKEM_X25519_HKDF_SHA256_HKDF_SHA256_AES_256_GCM_RAW"))
+        val keyTemplate = KeyTemplates.get("DHKEM_X25519_HKDF_SHA256_HKDF_SHA256_AES_256_GCM_RAW")
+        senderHybridPrivate = KeysetHandle.generateNew(keyTemplate)
         senderSigPrivate = KeysetHandle.generateNew(KeyTemplates.get("ED25519_RAW"))
         senderBundle = PublicKeyBundle.fromPrivate(senderHybridPrivate, senderSigPrivate)
         senderCrypto = MessageCrypto(senderHybridPrivate, senderSigPrivate)
 
-        receiverHybridPrivate = KeysetHandle.generateNew(KeyTemplates.get("DHKEM_X25519_HKDF_SHA256_HKDF_SHA256_AES_256_GCM_RAW"))
+        receiverHybridPrivate = KeysetHandle.generateNew(keyTemplate)
         receiverSigPrivate = KeysetHandle.generateNew(KeyTemplates.get("ED25519_RAW"))
         receiverBundle = PublicKeyBundle.fromPrivate(receiverHybridPrivate, receiverSigPrivate)
         receiverCrypto = MessageCrypto(receiverHybridPrivate, receiverSigPrivate)
@@ -117,7 +118,8 @@ class PaymentMeshIntegrationTest {
             val sig = PaymentSigner.sign(payload, senderCrypto::signRaw)
 
             val keyStoreFile2 = File.createTempFile("identity2", ".key")
-            val identityKeyStoreReceiver = IdentityKeyStore(KeystoreSecret(context, "test-alias-2", "identity2.key", keyStoreFile2.parentFile!!))
+            val secret2 = KeystoreSecret(context, "test-alias-2", "identity2.key", keyStoreFile2.parentFile!!)
+            val identityKeyStoreReceiver = IdentityKeyStore(secret2)
             val receiverRepo = PaymentRepository(paymentDao, walletDao, identityKeyStoreReceiver)
 
             val env =
@@ -184,10 +186,16 @@ class PaymentMeshIntegrationTest {
                 )
             val sig = PaymentSigner.sign(payloadForOther, senderCrypto::signRaw)
 
-            val identityKeyStore = IdentityKeyStore(KeystoreSecret(context, "test-alias-3", "identity3.key", keyStoreFile.parentFile!!))
+            val secret3 = KeystoreSecret(context, "test-alias-3", "identity3.key", keyStoreFile.parentFile!!)
+            val identityKeyStore = IdentityKeyStore(secret3)
             val repository = PaymentRepository(paymentDao, walletDao, identityKeyStore)
 
-            val env = RelayEnvelope(type = FrameType.PAYMENT, id = payloadForOther.transactionId, senderId = "sender-node", payload = ByteArray(0))
+            val env = RelayEnvelope(
+                type = FrameType.PAYMENT,
+                id = payloadForOther.transactionId,
+                senderId = "sender-node",
+                payload = ByteArray(0),
+            )
             val wire = WireEnvelope(sig = Base64.getDecoder().decode(sig), signed = ByteArray(0))
 
             val result = repository.processInboundPayment(payloadForOther, sig, env, wire, "node-other")
@@ -224,12 +232,19 @@ class PaymentMeshIntegrationTest {
 
             // Simulate Phone B (intermediate relay node):
             // Phone B receives wire with hops = 1 and forwards it as wireRelayed with hops = 2
-            val wireHop1 = WireEnvelope(ttl = 8, hops = 1, relay = true, sig = Base64.getDecoder().decode(sig), signed = ByteArray(0))
+            val wireHop1 = WireEnvelope(
+                ttl = 8,
+                hops = 1,
+                relay = true,
+                sig = Base64.getDecoder().decode(sig),
+                signed = ByteArray(0),
+            )
             val wireHop2 = wireHop1.relayed() // Hops incremented to 2
 
             // Phone C (recipient) verifies signature on wireHop2
             val isSigValidOnPhoneC = PaymentSigner.verify(payload, sig, senderBundle)
-            assertTrue("Ed25519 signature remains 100% valid after mesh hop count increment", isSigValidOnPhoneC)
+            val msg = "Ed25519 signature remains 100% valid after mesh hop count increment"
+            assertTrue(msg, isSigValidOnPhoneC)
 
             val resultValidation = PaymentProtocolValidator.validate(payload, sig)
             assertEquals(PaymentValidationResult.VALID, resultValidation)

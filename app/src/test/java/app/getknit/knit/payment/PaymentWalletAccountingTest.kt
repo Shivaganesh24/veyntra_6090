@@ -61,13 +61,19 @@ class PaymentWalletAccountingTest {
         paymentDao = db.paymentDao()
         walletDao = db.walletDao()
 
-        senderHybridPrivate = KeysetHandle.generateNew(KeyTemplates.get("DHKEM_X25519_HKDF_SHA256_HKDF_SHA256_AES_256_GCM_RAW"))
+        val keyTemplate = KeyTemplates.get("DHKEM_X25519_HKDF_SHA256_HKDF_SHA256_AES_256_GCM_RAW")
+        senderHybridPrivate = KeysetHandle.generateNew(keyTemplate)
         senderSigPrivate = KeysetHandle.generateNew(KeyTemplates.get("ED25519_RAW"))
         senderBundle = PublicKeyBundle.fromPrivate(senderHybridPrivate, senderSigPrivate)
         senderCrypto = MessageCrypto(senderHybridPrivate, senderSigPrivate)
 
         keyStoreFile = File.createTempFile("identity-acc", ".key")
-        val keystoreSecret = KeystoreSecret(context, "test-alias-acc", "identity-acc.key", keyStoreFile.parentFile!!)
+        val keystoreSecret = KeystoreSecret(
+            context,
+            "test-alias-acc",
+            "identity-acc.key",
+            keyStoreFile.parentFile!!,
+        )
         identityKeyStore = IdentityKeyStore(keystoreSecret)
 
         repository = PaymentRepository(paymentDao, walletDao, identityKeyStore)
@@ -82,10 +88,20 @@ class PaymentWalletAccountingTest {
     @Test
     fun `1 outbound reservation succeeds and reduces available balance`() =
         runTest {
-            val wallet = repository.initializeDemoWallet("wallet-sender", "Phone A", publicKey = senderBundle.encoded, initialBalance = 50000L) // ₹500
+            val wallet = repository.initializeDemoWallet(
+                walletId = "wallet-sender",
+                displayName = "Phone A",
+                publicKey = senderBundle.encoded,
+                initialBalance = 50000L, // ₹500
+            )
             assertEquals(50000L, wallet.availableBalance)
 
-            val outbound = repository.createOutboundPayment("wallet-receiver", "rec-pub-key", 10000L, senderCrypto::signRaw) // ₹100
+            val outbound = repository.createOutboundPayment(
+                receiverWalletId = "wallet-receiver",
+                receiverPublicKey = "rec-pub-key",
+                amount = 10000L, // ₹100
+                signRaw = senderCrypto::signRaw,
+            )
             assertNotNull(outbound)
 
             val updatedWallet = repository.getPrimaryWallet()
@@ -97,10 +113,20 @@ class PaymentWalletAccountingTest {
     @Test
     fun `2 outbound payment fails if available balance is insufficient`() =
         runTest {
-            repository.initializeDemoWallet("wallet-sender", "Phone A", publicKey = senderBundle.encoded, initialBalance = 50000L) // ₹500
+            repository.initializeDemoWallet(
+                walletId = "wallet-sender",
+                displayName = "Phone A",
+                publicKey = senderBundle.encoded,
+                initialBalance = 50000L,
+            )
 
             // Try to send ₹600 (60000 paise)
-            val outbound = repository.createOutboundPayment("wallet-receiver", "rec-pub-key", 60000L, senderCrypto::signRaw)
+            val outbound = repository.createOutboundPayment(
+                receiverWalletId = "wallet-receiver",
+                receiverPublicKey = "rec-pub-key",
+                amount = 60000L,
+                signRaw = senderCrypto::signRaw,
+            )
             assertNull(outbound) // Fails!
 
             val wallet = repository.getPrimaryWallet()
@@ -110,11 +136,30 @@ class PaymentWalletAccountingTest {
     @Test
     fun `3 concurrent payment attempts cannot overspend available balance`() =
         runTest {
-            repository.initializeDemoWallet("wallet-sender", "Phone A", publicKey = senderBundle.encoded, initialBalance = 50000L) // ₹500
+            repository.initializeDemoWallet(
+                walletId = "wallet-sender",
+                displayName = "Phone A",
+                publicKey = senderBundle.encoded,
+                initialBalance = 50000L,
+            )
 
             // Attempt two concurrent ₹400 payments
-            val result1 = async { repository.createOutboundPayment("receiver-1", "rec-pub-1", 40000L, senderCrypto::signRaw) }
-            val result2 = async { repository.createOutboundPayment("receiver-2", "rec-pub-2", 40000L, senderCrypto::signRaw) }
+            val result1 = async {
+                repository.createOutboundPayment(
+                    receiverWalletId = "receiver-1",
+                    receiverPublicKey = "rec-pub-1",
+                    amount = 40000L,
+                    signRaw = senderCrypto::signRaw,
+                )
+            }
+            val result2 = async {
+                repository.createOutboundPayment(
+                    receiverWalletId = "receiver-2",
+                    receiverPublicKey = "rec-pub-2",
+                    amount = 40000L,
+                    signRaw = senderCrypto::signRaw,
+                )
+            }
 
             val results = awaitAll(result1, result2)
             val successCount = results.count { it != null }
@@ -127,13 +172,27 @@ class PaymentWalletAccountingTest {
     @Test
     fun `4 releasing outbound reservation restores available balance`() =
         runTest {
-            repository.initializeDemoWallet("wallet-sender", "Phone A", publicKey = senderBundle.encoded, initialBalance = 50000L)
-            val (payload, _) = repository.createOutboundPayment("wallet-receiver", "rec-pub", 10000L, senderCrypto::signRaw)!!
+            repository.initializeDemoWallet(
+                walletId = "wallet-sender",
+                displayName = "Phone A",
+                publicKey = senderBundle.encoded,
+                initialBalance = 50000L,
+            )
+            val (payload, _) = repository.createOutboundPayment(
+                receiverWalletId = "wallet-receiver",
+                receiverPublicKey = "rec-pub",
+                amount = 10000L,
+                signRaw = senderCrypto::signRaw,
+            )!!
 
             assertEquals(40000L, repository.getPrimaryWallet()?.availableBalance)
 
             // Release reservation (e.g. payment expired or rejected)
-            repository.releaseOutboundReservation(payload.transactionId, 10000L, PaymentValidationResult.EXPIRED)
+            repository.releaseOutboundReservation(
+                payload.transactionId,
+                10000L,
+                PaymentValidationResult.EXPIRED,
+            )
 
             val updated = repository.getPrimaryWallet()
             assertEquals(0L, updated?.pendingOutbound)
@@ -143,8 +202,18 @@ class PaymentWalletAccountingTest {
     @Test
     fun `5 outbound settlement finalization deducts settled and pending outbound balance`() =
         runTest {
-            repository.initializeDemoWallet("wallet-sender", "Phone A", publicKey = senderBundle.encoded, initialBalance = 50000L)
-            val (payload, _) = repository.createOutboundPayment("wallet-receiver", "rec-pub", 10000L, senderCrypto::signRaw)!!
+            repository.initializeDemoWallet(
+                walletId = "wallet-sender",
+                displayName = "Phone A",
+                publicKey = senderBundle.encoded,
+                initialBalance = 50000L,
+            )
+            val (payload, _) = repository.createOutboundPayment(
+                receiverWalletId = "wallet-receiver",
+                receiverPublicKey = "rec-pub",
+                amount = 10000L,
+                signRaw = senderCrypto::signRaw,
+            )!!
 
             repository.confirmOutboundSettlement(payload.transactionId, 10000L, "0xHASH123")
 
@@ -157,7 +226,12 @@ class PaymentWalletAccountingTest {
     @Test
     fun `6 and 7 inbound pending payment does NOT increase spendable available balance`() =
         runTest {
-            repository.initializeDemoWallet("wallet-receiver", "Phone B", publicKey = senderBundle.encoded, initialBalance = 10000L) // ₹100
+            repository.initializeDemoWallet(
+                walletId = "wallet-receiver",
+                displayName = "Phone B",
+                publicKey = senderBundle.encoded,
+                initialBalance = 10000L,
+            )
             val now = System.currentTimeMillis()
 
             val payload =
@@ -176,22 +250,35 @@ class PaymentWalletAccountingTest {
                 )
             val sig = PaymentSigner.sign(payload, senderCrypto::signRaw)
 
-            val env = RelayEnvelope(type = FrameType.PAYMENT, id = payload.transactionId, senderId = "sender-node", payload = ByteArray(0))
-            val wire = WireEnvelope(sig = Base64.getDecoder().decode(sig), signed = ByteArray(0))
+            val env = RelayEnvelope(
+                type = FrameType.PAYMENT,
+                id = payload.transactionId,
+                senderId = "sender-node",
+                payload = ByteArray(0),
+            )
+            val wire = WireEnvelope(
+                sig = Base64.getDecoder().decode(sig),
+                signed = ByteArray(0),
+            )
 
             repository.processInboundPayment(payload, sig, env, wire, "node-sender")
 
             val updatedWallet = repository.getPrimaryWallet()
             assertEquals(10000L, updatedWallet?.settledBalance) // ₹100 spendable
             assertEquals(10000L, updatedWallet?.pendingInbound) // ₹100 pending inbound
-            assertEquals(10000L, updatedWallet?.availableBalance) // Spendable stays ₹100! (Inbound pending NOT spendable)
+            assertEquals(10000L, updatedWallet?.availableBalance) // Spendable stays ₹100!
             assertEquals(20000L, updatedWallet?.totalBalance) // Displayed total = ₹200
         }
 
     @Test
     fun `8 inbound settlement finalization shifts pending inbound to settled spendable balance`() =
         runTest {
-            repository.initializeDemoWallet("wallet-receiver", "Phone B", publicKey = senderBundle.encoded, initialBalance = 10000L)
+            repository.initializeDemoWallet(
+                walletId = "wallet-receiver",
+                displayName = "Phone B",
+                publicKey = senderBundle.encoded,
+                initialBalance = 10000L,
+            )
             val now = System.currentTimeMillis()
 
             val payload =
@@ -209,8 +296,16 @@ class PaymentWalletAccountingTest {
                     expiryTime = now + 86400000L,
                 )
             val sig = PaymentSigner.sign(payload, senderCrypto::signRaw)
-            val env = RelayEnvelope(type = FrameType.PAYMENT, id = payload.transactionId, senderId = "sender-node", payload = ByteArray(0))
-            val wire = WireEnvelope(sig = Base64.getDecoder().decode(sig), signed = ByteArray(0))
+            val env = RelayEnvelope(
+                type = FrameType.PAYMENT,
+                id = payload.transactionId,
+                senderId = "sender-node",
+                payload = ByteArray(0),
+            )
+            val wire = WireEnvelope(
+                sig = Base64.getDecoder().decode(sig),
+                signed = ByteArray(0),
+            )
 
             repository.processInboundPayment(payload, sig, env, wire, "node-sender")
             repository.confirmInboundSettlement("tx-inbound-2", 10000L, "0xONCHAIN_HASH")
@@ -224,7 +319,12 @@ class PaymentWalletAccountingTest {
     @Test
     fun `9 inbound settlement failure rolls back pending inbound without touching settled balance`() =
         runTest {
-            repository.initializeDemoWallet("wallet-receiver", "Phone B", publicKey = senderBundle.encoded, initialBalance = 10000L)
+            repository.initializeDemoWallet(
+                walletId = "wallet-receiver",
+                displayName = "Phone B",
+                publicKey = senderBundle.encoded,
+                initialBalance = 10000L,
+            )
             val now = System.currentTimeMillis()
 
             val payload =
@@ -242,11 +342,23 @@ class PaymentWalletAccountingTest {
                     expiryTime = now + 86400000L,
                 )
             val sig = PaymentSigner.sign(payload, senderCrypto::signRaw)
-            val env = RelayEnvelope(type = FrameType.PAYMENT, id = payload.transactionId, senderId = "sender-node", payload = ByteArray(0))
-            val wire = WireEnvelope(sig = Base64.getDecoder().decode(sig), signed = ByteArray(0))
+            val env = RelayEnvelope(
+                type = FrameType.PAYMENT,
+                id = payload.transactionId,
+                senderId = "sender-node",
+                payload = ByteArray(0),
+            )
+            val wire = WireEnvelope(
+                sig = Base64.getDecoder().decode(sig),
+                signed = ByteArray(0),
+            )
 
             repository.processInboundPayment(payload, sig, env, wire, "node-sender")
-            repository.rollbackInboundPending("tx-inbound-fail", 10000L, PaymentValidationResult.CONFLICT)
+            repository.rollbackInboundPending(
+                "tx-inbound-fail",
+                10000L,
+                PaymentValidationResult.CONFLICT,
+            )
 
             val updatedWallet = repository.getPrimaryWallet()
             assertEquals(10000L, updatedWallet?.settledBalance) // ₹100 remains
@@ -257,13 +369,28 @@ class PaymentWalletAccountingTest {
     @Test
     fun `11 and 12 monotonic nonce increments and persists across restarts`() =
         runTest {
-            val wallet = repository.initializeDemoWallet("wallet-sender", "Phone A", publicKey = senderBundle.encoded, initialBalance = 50000L)
+            val wallet = repository.initializeDemoWallet(
+                walletId = "wallet-sender",
+                displayName = "Phone A",
+                publicKey = senderBundle.encoded,
+                initialBalance = 50000L,
+            )
             assertEquals(1L, wallet.nextNonce)
 
-            val (p1, _) = repository.createOutboundPayment("rec-1", "rec-pub-1", 10000L, senderCrypto::signRaw)!!
+            val (p1, _) = repository.createOutboundPayment(
+                receiverWalletId = "rec-1",
+                receiverPublicKey = "rec-pub-1",
+                amount = 10000L,
+                signRaw = senderCrypto::signRaw,
+            )!!
             assertEquals(1L, p1.nonce)
 
-            val (p2, _) = repository.createOutboundPayment("rec-2", "rec-pub-2", 10000L, senderCrypto::signRaw)!!
+            val (p2, _) = repository.createOutboundPayment(
+                receiverWalletId = "rec-2",
+                receiverPublicKey = "rec-pub-2",
+                amount = 10000L,
+                signRaw = senderCrypto::signRaw,
+            )!!
             assertEquals(2L, p2.nonce)
 
             val currentWallet = repository.getPrimaryWallet()
@@ -273,8 +400,18 @@ class PaymentWalletAccountingTest {
     @Test
     fun `15 crash recovery preserves payment status and wallet reservations after database close and reopen`() =
         runTest {
-            repository.initializeDemoWallet("wallet-sender", "Phone A", publicKey = senderBundle.encoded, initialBalance = 50000L)
-            val (payload, _) = repository.createOutboundPayment("wallet-receiver", "rec-pub", 10000L, senderCrypto::signRaw)!!
+            repository.initializeDemoWallet(
+                walletId = "wallet-sender",
+                displayName = "Phone A",
+                publicKey = senderBundle.encoded,
+                initialBalance = 50000L,
+            )
+            val (payload, _) = repository.createOutboundPayment(
+                receiverWalletId = "wallet-receiver",
+                receiverPublicKey = "rec-pub",
+                amount = 10000L,
+                signRaw = senderCrypto::signRaw,
+            )!!
 
             // Simulate app crash / restart: close and reopen database on same memory/disk file
             val tempFile = File.createTempFile("crash-test", ".db")

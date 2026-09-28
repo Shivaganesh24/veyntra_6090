@@ -106,7 +106,12 @@ class PaymentReconciliationTest {
         walletDao = db.walletDao()
 
         keyStoreFile = File.createTempFile("identity-recon", ".key")
-        val keystoreSecret = KeystoreSecret(context, "test-alias-recon", "identity-recon.key", keyStoreFile.parentFile!!)
+        val keystoreSecret = KeystoreSecret(
+            context,
+            "test-alias-recon",
+            "identity-recon.key",
+            keyStoreFile.parentFile!!,
+        )
         val identityKeyStore = IdentityKeyStore(keystoreSecret)
 
         repository = PaymentRepository(paymentDao, walletDao, identityKeyStore)
@@ -126,7 +131,14 @@ class PaymentReconciliationTest {
             val manager = OfflineReconciliationManager(repository, fakeSettlement, fakeGate, backgroundScope)
 
             // Setup receiver wallet with pending inbound payment of ₹100
-            val wallet = WalletEntity("wallet-rec", "pub-rec", "Phone B", currency = "INR", settledBalance = 10000L, pendingInbound = 10000L)
+            val wallet = WalletEntity(
+                walletId = "wallet-rec",
+                publicKey = "pub-rec",
+                displayName = "Phone B",
+                currency = "INR",
+                settledBalance = 10000L,
+                pendingInbound = 10000L,
+            )
             walletDao.upsertWallet(wallet)
 
             val pendingPayment =
