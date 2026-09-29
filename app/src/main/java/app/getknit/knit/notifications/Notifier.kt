@@ -207,6 +207,20 @@ interface Notifier {
 
     /** Cancels the open-to-chat cue — the user switched their own flag off. */
     fun clearOpenToChat()
+
+    /** Posts a notification when an offline payment is received over the mesh network. */
+    fun notifyPaymentReceived(
+        senderWalletId: String,
+        amountPaise: Long,
+        transactionId: String,
+    ) {}
+
+    /** Posts a notification when a payment is settled on the MST Blockchain testnet. */
+    fun notifyPaymentSettled(
+        amountPaise: Long,
+        transactionId: String,
+        txHash: String?,
+    ) {}
 }
 
 /** How many people the open-to-chat cue names before folding the rest into "and N others". */

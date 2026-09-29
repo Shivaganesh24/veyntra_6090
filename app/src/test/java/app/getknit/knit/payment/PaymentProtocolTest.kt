@@ -138,8 +138,11 @@ class PaymentProtocolTest {
             val payload = createValidPayload()
             val sig = PaymentSigner.sign(payload, senderCrypto::signRaw)
 
-            // Claimed sender key changed to receiver's bundle
-            val tamperedPayload = payload.copy(senderPublicKey = receiverBundle.encoded)
+            val thirdHybrid = KeysetHandle.generateNew(KeyTemplates.get("DHKEM_X25519_HKDF_SHA256_HKDF_SHA256_AES_256_GCM_RAW"))
+            val thirdSig = KeysetHandle.generateNew(KeyTemplates.get("ED25519_RAW"))
+            val thirdBundle = PublicKeyBundle.fromPrivate(thirdHybrid, thirdSig)
+
+            val tamperedPayload = payload.copy(senderPublicKey = thirdBundle.encoded)
             val result = PaymentProtocolValidator.validate(tamperedPayload, sig)
             assertEquals(PaymentValidationResult.INVALID_SIGNATURE, result)
         }

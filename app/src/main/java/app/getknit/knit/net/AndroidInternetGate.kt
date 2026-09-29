@@ -51,6 +51,8 @@ class AndroidInternetGate(
 
     override fun isOnline(): Boolean = currentNetwork() != null
 
+    override fun isInternetAvailable(): Boolean = isOnline()
+
     override fun routeKind(): InternetGate.RouteKind {
         val cm = connectivity ?: return InternetGate.RouteKind.NONE
         val network = cm.activeNetwork ?: return InternetGate.RouteKind.NONE

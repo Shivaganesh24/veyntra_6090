@@ -69,7 +69,10 @@ object PaymentSigner {
     /**
      * Signs [payload] using Knit's Ed25519 raw signer callback ([signRaw]), returning a Base64-encoded signature.
      */
-    fun sign(payload: PaymentPayload, signRaw: (ByteArray) -> ByteArray): String {
+    fun sign(
+        payload: PaymentPayload,
+        signRaw: (ByteArray) -> ByteArray,
+    ): String {
         val signingBytes = canonicalSigningBytes(payload)
         val rawSig = signRaw(signingBytes)
         return Base64.getEncoder().encodeToString(rawSig)
@@ -82,12 +85,11 @@ object PaymentSigner {
         payload: PaymentPayload,
         signatureBase64: String,
         senderBundle: PublicKeyBundle,
-    ): Boolean {
-        return runCatching {
+    ): Boolean =
+        runCatching {
             val verifier = senderBundle.verifier()
             verify(payload, signatureBase64, verifier)
         }.getOrDefault(false)
-    }
 
     /**
      * Verifies that [signatureBase64] is a valid signature over [payload] using Tink's [verifier].
@@ -96,12 +98,11 @@ object PaymentSigner {
         payload: PaymentPayload,
         signatureBase64: String,
         verifier: PublicKeyVerify,
-    ): Boolean {
-        return runCatching {
+    ): Boolean =
+        runCatching {
             val sigBytes = Base64.getDecoder().decode(signatureBase64)
             val signingBytes = canonicalSigningBytes(payload)
             verifier.verify(sigBytes, signingBytes)
             true
         }.getOrDefault(false)
-    }
 }

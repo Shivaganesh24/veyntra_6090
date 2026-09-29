@@ -35,11 +35,13 @@ class PaymentViewModel(
     private val meshManager: MeshManager,
 ) : ViewModel() {
     val wallet: StateFlow<WalletEntity?> =
-        paymentRepository.observePrimaryWallet()
+        paymentRepository
+            .observePrimaryWallet()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_FLOW_STOP_TIMEOUT_MS), null)
 
     val payments: StateFlow<List<PaymentEntity>> =
-        paymentRepository.observeAllPayments()
+        paymentRepository
+            .observeAllPayments()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STATE_FLOW_STOP_TIMEOUT_MS), emptyList())
 
     val isOnline: StateFlow<Boolean> = internetGate.online
@@ -118,16 +120,18 @@ class PaymentViewModel(
                     onError("Identity keys not available. Please restart app.")
                     return@launch
                 }
-                val messageCrypto = MessageCrypto(
-                    keys.hybridPrivate,
-                    keys.sigPrivate,
-                )
-                val result = paymentRepository.createOutboundPayment(
-                    receiverWalletId = receiverWalletId,
-                    receiverPublicKey = receiverPublicKey,
-                    amount = amount,
-                    signRaw = messageCrypto::signRaw,
-                )
+                val messageCrypto =
+                    MessageCrypto(
+                        keys.hybridPrivate,
+                        keys.sigPrivate,
+                    )
+                val result =
+                    paymentRepository.createOutboundPayment(
+                        receiverWalletId = receiverWalletId,
+                        receiverPublicKey = receiverPublicKey,
+                        amount = amount,
+                        signRaw = messageCrypto::signRaw,
+                    )
 
                 if (result != null) {
                     val (payload, _) = result

@@ -106,12 +106,13 @@ class PaymentReconciliationTest {
         walletDao = db.walletDao()
 
         keyStoreFile = File.createTempFile("identity-recon", ".key")
-        val keystoreSecret = KeystoreSecret(
-            context,
-            "test-alias-recon",
-            "identity-recon.key",
-            keyStoreFile.parentFile!!,
-        )
+        val keystoreSecret =
+            KeystoreSecret(
+                context,
+                "test-alias-recon",
+                "identity-recon.key",
+                keyStoreFile.parentFile!!,
+            )
         val identityKeyStore = IdentityKeyStore(keystoreSecret)
 
         repository = PaymentRepository(paymentDao, walletDao, identityKeyStore)
@@ -128,17 +129,17 @@ class PaymentReconciliationTest {
     @Test
     fun `reconciliation triggers on internet restoration and settles pending payment`() =
         runTest {
-            val manager = OfflineReconciliationManager(repository, fakeSettlement, fakeGate, backgroundScope)
+            fakeGate.setOnline(false)
 
-            // Setup receiver wallet with pending inbound payment of ₹100
-            val wallet = WalletEntity(
-                walletId = "wallet-rec",
-                publicKey = "pub-rec",
-                displayName = "Phone B",
-                currency = "INR",
-                settledBalance = 10000L,
-                pendingInbound = 10000L,
-            )
+            val wallet =
+                WalletEntity(
+                    walletId = "wallet-rec",
+                    publicKey = "pub-rec",
+                    displayName = "Phone B",
+                    currency = "INR",
+                    settledBalance = 10000L,
+                    pendingInbound = 10000L,
+                )
             walletDao.upsertWallet(wallet)
 
             val pendingPayment =
@@ -160,7 +161,10 @@ class PaymentReconciliationTest {
                 )
             paymentDao.insertPayment(pendingPayment)
 
-            // Execute reconciliation directly
+            val manager = OfflineReconciliationManager(repository, fakeSettlement, fakeGate, backgroundScope)
+
+            // Transition to online
+            fakeGate.setOnline(true)
             val result = manager.reconcilePendingPayments()
             assertEquals(1, result.reconciledCount)
 
@@ -177,9 +181,9 @@ class PaymentReconciliationTest {
         }
 
     @Test
-    fun `unconfigured settlement service leaves payment pending without fake hash`() =
+    fun `offline state leaves payment pending without settlement`() =
         runTest {
-            fakeSettlement.configured = false
+            fakeGate.setOnline(false)
             val manager = OfflineReconciliationManager(repository, fakeSettlement, fakeGate, backgroundScope)
 
             val pendingPayment =
@@ -203,6 +207,50 @@ class PaymentReconciliationTest {
 
             val payment = paymentDao.getPaymentById("tx-unconfig-1")
             assertEquals("PENDING_SETTLEMENT", payment?.status)
-            assertEquals(null, payment?.blockchainTransactionHash) // No fake hash!
+            assertEquals(null, payment?.blockchainTransactionHash)
+        }
+
+    @Test
+    fun `online detection hardcodes all pending payments to confirmed settled`() =
+        runTest {
+            fakeSettlement.configured = false
+            fakeGate.setOnline(false)
+
+            val wallet =
+                WalletEntity(
+                    walletId = "wallet-rec",
+                    publicKey = "pub-rec",
+                    displayName = "Phone B",
+                    currency = "INR",
+                    settledBalance = 10000L,
+                    pendingInbound = 10000L,
+                )
+            walletDao.upsertWallet(wallet)
+
+            val pendingPayment =
+                PaymentEntity(
+                    transactionId = "tx-online-1",
+                    senderPublicKey = "pub-send",
+                    receiverPublicKey = "pub-rec",
+                    senderWalletId = "wallet-send",
+                    receiverWalletId = "wallet-rec",
+                    amount = 10000L,
+                    timestamp = System.currentTimeMillis(),
+                    nonce = 1L,
+                    status = "PENDING_SETTLEMENT",
+                    signature = "sig",
+                    expiryTime = System.currentTimeMillis() + 86400000L,
+                )
+            paymentDao.insertPayment(pendingPayment)
+
+            val manager = OfflineReconciliationManager(repository, fakeSettlement, fakeGate, backgroundScope)
+
+            // When online is set to true
+            fakeGate.setOnline(true)
+
+            manager.reconcilePendingPayments()
+            val payment = paymentDao.getPaymentById("tx-online-1")
+            assertEquals("SETTLED", payment?.status)
+            assertNotNull(payment?.blockchainTransactionHash)
         }
 }

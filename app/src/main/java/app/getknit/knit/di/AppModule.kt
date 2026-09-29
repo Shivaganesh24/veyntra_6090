@@ -184,9 +184,9 @@ val appModule =
         single { get<KnitDatabase>().metPeerDao() }
         single { get<KnitDatabase>().paymentDao() }
         single { get<KnitDatabase>().walletDao() }
-        single { PaymentRepository(get(), get(), get()) }
+        single { PaymentRepository(get(), get(), get(), get(), get()) }
         single<BlockchainSettlementService> { MSTBlockchainSettlementService() }
-        single { OfflineReconciliationManager(get(), get(), get(), get<CoroutineScope>()) }
+        single(createdAtStart = true) { OfflineReconciliationManager(get(), get(), get(), get<CoroutineScope>()) }
         single { MessageRepository(get()) }
         single { PeerRepository(get(), get<SettingsStore>(), get<Identity>()) }
         // Crash reports. The capture-side CrashStore is built by hand in KnitApplication.onCreate BEFORE

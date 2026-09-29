@@ -25,4 +25,5 @@ data class PaymentPayload(
     val previousTransactionReference: String? = null,
     val createdOffline: Boolean = true,
     val expiryTime: Long,
+    val signature: String = "",
 )

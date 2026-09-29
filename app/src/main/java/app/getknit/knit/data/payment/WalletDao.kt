@@ -11,6 +11,9 @@ interface WalletDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertWallet(wallet: WalletEntity)
 
+    @Query("DELETE FROM wallets WHERE walletId = :walletId")
+    suspend fun deleteWallet(walletId: String)
+
     @Query("SELECT * FROM wallets WHERE walletId = :walletId")
     suspend fun getWallet(walletId: String): WalletEntity?
 
@@ -31,7 +34,11 @@ interface WalletDao {
         "UPDATE wallets SET pendingOutbound = pendingOutbound + :amount, updatedAt = :now " +
             "WHERE walletId = :walletId AND (settledBalance - pendingOutbound) >= :amount",
     )
-    suspend fun reserveOutboundAmount(walletId: String, amount: Long, now: Long = System.currentTimeMillis()): Int
+    suspend fun reserveOutboundAmount(
+        walletId: String,
+        amount: Long,
+        now: Long = System.currentTimeMillis(),
+    ): Int
 
     /**
      * Releases a previously reserved outbound amount if payment is rejected, canceled, or expired.
@@ -40,7 +47,11 @@ interface WalletDao {
         "UPDATE wallets SET pendingOutbound = MAX(0, pendingOutbound - :amount), updatedAt = :now " +
             "WHERE walletId = :walletId",
     )
-    suspend fun releaseOutboundAmount(walletId: String, amount: Long, now: Long = System.currentTimeMillis())
+    suspend fun releaseOutboundAmount(
+        walletId: String,
+        amount: Long,
+        now: Long = System.currentTimeMillis(),
+    )
 
     /**
      * Confirms settlement of an outbound payment on-chain: deducts [amount] from [settledBalance] and [pendingOutbound].
@@ -50,7 +61,11 @@ interface WalletDao {
             "pendingOutbound = MAX(0, pendingOutbound - :amount), updatedAt = :now " +
             "WHERE walletId = :walletId",
     )
-    suspend fun confirmOutboundSettled(walletId: String, amount: Long, now: Long = System.currentTimeMillis())
+    suspend fun confirmOutboundSettled(
+        walletId: String,
+        amount: Long,
+        now: Long = System.currentTimeMillis(),
+    )
 
     /**
      * Receives an unconfirmed inbound offline payment via mesh: increases [pendingInbound].
@@ -60,7 +75,11 @@ interface WalletDao {
         "UPDATE wallets SET pendingInbound = pendingInbound + :amount, updatedAt = :now " +
             "WHERE walletId = :walletId",
     )
-    suspend fun receiveInboundPending(walletId: String, amount: Long, now: Long = System.currentTimeMillis())
+    suspend fun receiveInboundPending(
+        walletId: String,
+        amount: Long,
+        now: Long = System.currentTimeMillis(),
+    )
 
     /**
      * Confirms on-chain settlement of an inbound payment: decreases [pendingInbound] and increases [settledBalance].
@@ -70,7 +89,11 @@ interface WalletDao {
             "settledBalance = settledBalance + :amount, updatedAt = :now " +
             "WHERE walletId = :walletId",
     )
-    suspend fun confirmInboundSettled(walletId: String, amount: Long, now: Long = System.currentTimeMillis())
+    suspend fun confirmInboundSettled(
+        walletId: String,
+        amount: Long,
+        now: Long = System.currentTimeMillis(),
+    )
 
     /**
      * Rolls back an unconfirmed inbound payment if settlement fails or is rejected on-chain.
@@ -79,11 +102,18 @@ interface WalletDao {
         "UPDATE wallets SET pendingInbound = MAX(0, pendingInbound - :amount), updatedAt = :now " +
             "WHERE walletId = :walletId",
     )
-    suspend fun rollbackInboundPending(walletId: String, amount: Long, now: Long = System.currentTimeMillis())
+    suspend fun rollbackInboundPending(
+        walletId: String,
+        amount: Long,
+        now: Long = System.currentTimeMillis(),
+    )
 
     /**
      * Increments the wallet's monotonic nonce counter and returns the new nonce value.
      */
     @Query("UPDATE wallets SET nextNonce = nextNonce + 1, updatedAt = :now WHERE walletId = :walletId")
-    suspend fun incrementNonce(walletId: String, now: Long = System.currentTimeMillis())
+    suspend fun incrementNonce(
+        walletId: String,
+        now: Long = System.currentTimeMillis(),
+    )
 }

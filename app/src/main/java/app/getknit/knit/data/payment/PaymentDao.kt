@@ -15,7 +15,10 @@ interface PaymentDao {
     suspend fun getPaymentById(transactionId: String): PaymentEntity?
 
     @Query("SELECT * FROM payments WHERE senderPublicKey = :senderPublicKey AND nonce = :nonce LIMIT 1")
-    suspend fun getPaymentByNonce(senderPublicKey: String, nonce: Long): PaymentEntity?
+    suspend fun getPaymentByNonce(
+        senderPublicKey: String,
+        nonce: Long,
+    ): PaymentEntity?
 
     @Query("SELECT * FROM payments ORDER BY timestamp DESC")
     fun observeAllPayments(): Flow<List<PaymentEntity>>
@@ -25,7 +28,7 @@ interface PaymentDao {
 
     @Query(
         "SELECT * FROM payments WHERE status IN " +
-            "('OFFLINE_SENT', 'RECEIVED', 'VERIFIED', 'PENDING_SETTLEMENT') " +
+            "('OFFLINE_SENT', 'RECEIVED', 'VERIFIED', 'PENDING_SETTLEMENT', 'SUBMITTED') " +
             "ORDER BY timestamp ASC",
     )
     suspend fun getPendingSettlementPayments(): List<PaymentEntity>
