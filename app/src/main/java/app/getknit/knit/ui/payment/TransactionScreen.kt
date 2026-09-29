@@ -2,6 +2,8 @@ package app.getknit.knit.ui.payment
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +23,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -29,7 +30,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,6 +47,17 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+private val VeyntraBg = Color(0xFFF6F8FC)
+private val VeyntraCardBg = Color(0xFFFFFFFF)
+private val VeyntraCardBorder = Color(0xFFE5E7EB)
+
+private val VeyntraBluePrimary = Color(0xFF1E66F5)
+private val VeyntraGreenSuccess = Color(0xFF16A34A)
+private val VeyntraOrangeWarning = Color(0xFFD97706)
+
+private val VeyntraTextDark = Color(0xFF111827)
+private val VeyntraTextMuted = Color(0xFF6B7280)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionScreen(
@@ -51,19 +65,37 @@ fun TransactionScreen(
     onBack: () -> Unit,
 ) {
     val payments by viewModel.payments.collectAsStateWithLifecycle()
+    var selectedPaymentForDetails by remember { mutableStateOf<PaymentEntity?>(null) }
+
+    if (selectedPaymentForDetails != null) {
+        TransactionDetailsDialog(
+            payment = selectedPaymentForDetails!!,
+            onDismiss = { selectedPaymentForDetails = null },
+        )
+    }
 
     Scaffold(
+        containerColor = VeyntraBg,
         topBar = {
             TopAppBar(
-                title = { Text("Payment Transactions", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        text = "Payment Transactions",
+                        fontWeight = FontWeight.Bold,
+                        color = VeyntraTextDark,
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = VeyntraTextDark,
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    containerColor = VeyntraBg,
                 ),
             )
         },
@@ -79,14 +111,21 @@ fun TransactionScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("No transactions found.", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = "No transactions found.",
+                        color = VeyntraTextMuted,
+                        fontSize = 15.sp,
+                    )
                 }
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(payments) { payment ->
-                        FullTransactionCard(payment = payment)
+                        FullTransactionCard(
+                            payment = payment,
+                            onClick = { selectedPaymentForDetails = payment },
+                        )
                     }
                 }
             }
@@ -95,14 +134,20 @@ fun TransactionScreen(
 }
 
 @Composable
-fun FullTransactionCard(payment: PaymentEntity) {
+fun FullTransactionCard(
+    payment: PaymentEntity,
+    onClick: () -> Unit = {},
+) {
     val dateFormat = rememberDateFormat()
     val formattedDate = dateFormat.format(Date(payment.timestamp))
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = VeyntraCardBg),
+        border = BorderStroke(1.dp, VeyntraCardBorder),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -111,24 +156,25 @@ fun FullTransactionCard(payment: PaymentEntity) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Tx: ${payment.transactionId}",
+                    text = "Tx: ${payment.transactionId.take(16)}...",
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
+                    color = VeyntraTextDark,
                 )
                 Text(
                     text = "₹%.2f".format(payment.amount / 100.0),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = VeyntraBluePrimary,
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text("From: ${payment.senderWalletId}", fontSize = 12.sp)
-            Text("To: ${payment.receiverWalletId}", fontSize = 12.sp)
-            Text("Date: $formattedDate", fontSize = 12.sp, color = Color.Gray)
-            Text("Mesh Hops: ${payment.hopCount} hop(s)", fontSize = 12.sp, color = Color.Gray)
+            Text("From: ${payment.senderWalletId}", fontSize = 12.sp, color = VeyntraTextDark)
+            Text("To: ${payment.receiverWalletId}", fontSize = 12.sp, color = VeyntraTextDark)
+            Text("Date: $formattedDate", fontSize = 12.sp, color = VeyntraTextMuted)
+            Text("Mesh Hops: ${payment.hopCount} hop(s)", fontSize = 12.sp, color = VeyntraTextMuted)
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -137,23 +183,32 @@ fun FullTransactionCard(payment: PaymentEntity) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
+                    shape = RoundedCornerShape(8.dp),
                     color = when (payment.status) {
-                        "SETTLED" -> Color(0xFF2E7D32)
-                        "OFFLINE_SENT", "PENDING_SETTLEMENT" -> Color(0xFFEF6C00)
-                        else -> Color(0xFFC62828)
+                        "SETTLED" -> VeyntraGreenSuccess.copy(alpha = 0.15f)
+                        "OFFLINE_SENT", "PENDING_SETTLEMENT" -> VeyntraOrangeWarning.copy(alpha = 0.15f)
+                        else -> Color(0xFFFEE2E2)
                     },
                 ) {
                     Text(
-                        text = payment.status,
-                        color = Color.White,
+                        text = when (payment.status) {
+                            "SETTLED" -> "✓ Successfully Settled on MST"
+                            "PENDING_SETTLEMENT", "RECEIVED" -> "⏳ Pending Settlement"
+                            "OFFLINE_SENT" -> "⏳ Sent Offline — Pending Settlement"
+                            else -> payment.status
+                        },
+                        color = when (payment.status) {
+                            "SETTLED" -> VeyntraGreenSuccess
+                            "OFFLINE_SENT", "PENDING_SETTLEMENT" -> VeyntraOrangeWarning
+                            else -> Color(0xFFDC2626)
+                        },
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     )
                 }
 
-                if (payment.blockchainTransactionHash != null) {
+                if (!payment.blockchainTransactionHash.isNullOrBlank()) {
                     val context = LocalContext.current
                     Surface(
                         onClick = {
@@ -161,13 +216,14 @@ fun FullTransactionCard(payment: PaymentEntity) {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                             context.startActivity(intent)
                         },
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFF1565C0),
+                        shape = RoundedCornerShape(8.dp),
+                        color = VeyntraBluePrimary,
                     ) {
                         Text(
                             text = "View on MSTScan (0x${payment.blockchainTransactionHash.take(8)}...)",
                             color = Color.White,
                             fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     }
@@ -178,6 +234,4 @@ fun FullTransactionCard(payment: PaymentEntity) {
 }
 
 @Composable
-private fun rememberDateFormat(): SimpleDateFormat {
-    return remember { SimpleDateFormat("dd MMM yyyy, HH:mm:ss", Locale.US) }
-}
+private fun rememberDateFormat(): SimpleDateFormat = remember { SimpleDateFormat("dd MMM yyyy, HH:mm:ss", Locale.US) }

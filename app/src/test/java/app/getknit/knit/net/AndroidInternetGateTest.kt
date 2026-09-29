@@ -223,4 +223,72 @@ class AndroidInternetGateTest {
             online.cancel()
             routes.cancel()
         }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun wifiPlusInternetIsOnline() =
+        runTest(UnconfinedTestDispatcher()) {
+            activate(ConnectivityManager.TYPE_WIFI, network, *validated)
+            val gate = AndroidInternetGate(context, backgroundScope)
+            assertTrue(gate.isInternetAvailable())
+            assertTrue(gate.isOnline())
+        }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun wifiConnectedButInternetUnavailableIsOffline() =
+        runTest(UnconfinedTestDispatcher()) {
+            activate(ConnectivityManager.TYPE_WIFI, network, NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            val gate = AndroidInternetGate(context, backgroundScope)
+            assertFalse(gate.isInternetAvailable())
+            assertFalse(gate.isOnline())
+        }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun mobileDataPlusInternetIsOnline() =
+        runTest(UnconfinedTestDispatcher()) {
+            val cellular = ShadowNetwork.newInstance(ConnectivityManager.TYPE_MOBILE)
+            activate(ConnectivityManager.TYPE_MOBILE, cellular, *validated)
+            val gate = AndroidInternetGate(context, backgroundScope)
+            assertTrue(gate.isInternetAvailable())
+            assertTrue(gate.isOnline())
+        }
+
+    @Test
+    fun airplaneModeOrNoNetworkIsOffline() =
+        runTest(UnconfinedTestDispatcher()) {
+            shadowOf(connectivity).setActiveNetworkInfo(null)
+            val gate = AndroidInternetGate(context, backgroundScope)
+            assertFalse(gate.isInternetAvailable())
+            assertFalse(gate.isOnline())
+        }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun switchWifiToMobileDataUpdatesStatusCorrectly() =
+        runTest(UnconfinedTestDispatcher()) {
+            activate(ConnectivityManager.TYPE_WIFI, network, *validated)
+            val gate = AndroidInternetGate(context, backgroundScope)
+            assertTrue(gate.isInternetAvailable())
+
+            val cellular = ShadowNetwork.newInstance(ConnectivityManager.TYPE_MOBILE)
+            activate(ConnectivityManager.TYPE_MOBILE, cellular, *validated)
+            assertTrue(gate.isInternetAvailable())
+            assertEquals(InternetGate.RouteKind.CELLULAR, gate.routeKind())
+        }
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun internetDisappearsWhileWifiRemainsConnectedIsOffline() =
+        runTest(UnconfinedTestDispatcher()) {
+            activate(ConnectivityManager.TYPE_WIFI, network, *validated)
+            val gate = AndroidInternetGate(context, backgroundScope)
+            assertTrue(gate.isInternetAvailable())
+
+            // Internet capability is lost / unvalidated while Wi-Fi remains connected
+            activate(ConnectivityManager.TYPE_WIFI, network, NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            assertFalse(gate.isInternetAvailable())
+            assertFalse(gate.isOnline())
+        }
 }

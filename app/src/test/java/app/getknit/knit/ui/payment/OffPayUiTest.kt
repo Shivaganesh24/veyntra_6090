@@ -7,7 +7,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class OffPayUiTest {
-
     @Test
     fun `OffPay branding and explorer URL generation are correct`() {
         val txHash = "0x1234567890abcdef"
@@ -20,14 +19,15 @@ class OffPayUiTest {
 
     @Test
     fun `wallet available spendable balance calculation is enforced`() {
-        val wallet = WalletEntity(
-            walletId = "wallet-test",
-            publicKey = "pub-test",
-            displayName = "OffPay Test Wallet",
-            settledBalance = 50000L, // ₹500
-            pendingOutbound = 10000L, // ₹100 reserved
-            pendingInbound = 20000L, // ₹200 unconfirmed
-        )
+        val wallet =
+            WalletEntity(
+                walletId = "wallet-test",
+                publicKey = "pub-test",
+                displayName = "OffPay Test Wallet",
+                settledBalance = 50000L, // ₹500
+                pendingOutbound = 10000L, // ₹100 reserved
+                pendingInbound = 20000L, // ₹200 unconfirmed
+            )
 
         assertEquals(40000L, wallet.availableBalance) // ₹400 spendable
         assertEquals(70000L, wallet.totalBalance) // ₹700 represented

@@ -18,6 +18,9 @@ interface InternetGate {
     /** A snapshot, re-read before every fetch: true when a validated Internet route exists this instant. */
     fun isOnline(): Boolean
 
+    /** Simple reusable function to determine whether the phone is online with validated Internet access. */
+    fun isInternetAvailable(): Boolean = isOnline()
+
     /**
      * True when the system Data Saver restricts this app on a metered network. A preview is a convenience the
      * user never asked for byte by byte, so it defers to that setting even though a foreground app could

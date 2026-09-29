@@ -1,9 +1,14 @@
 package app.getknit.knit.data.payment
 
 import android.util.Log
+import androidx.room3.withWriteTransaction
+import app.getknit.knit.data.KnitDatabase
 import app.getknit.knit.data.crypto.IdentityKeyStore
+import app.getknit.knit.identity.NodeId
+import app.getknit.knit.mesh.crypto.PublicKeyBundle
 import app.getknit.knit.mesh.protocol.RelayEnvelope
 import app.getknit.knit.mesh.protocol.WireEnvelope
+import app.getknit.knit.notifications.Notifier
 import app.getknit.knit.payment.crypto.PaymentSigner
 import app.getknit.knit.payment.protocol.PaymentPayload
 import app.getknit.knit.payment.protocol.PaymentProtocolValidator
@@ -16,19 +21,44 @@ import kotlinx.coroutines.flow.asSharedFlow
  * Observable events emitted when payment states change.
  */
 sealed interface PaymentEvent {
-    data class Created(val payment: PaymentEntity) : PaymentEvent
-    data class Sent(val payment: PaymentEntity) : PaymentEvent
-    data class Received(val payment: PaymentEntity) : PaymentEvent
-    data class Verified(val payment: PaymentEntity) : PaymentEvent
-    data class Settled(val payment: PaymentEntity, val txHash: String) : PaymentEvent
-    data class Rejected(val transactionId: String, val reason: PaymentValidationResult) : PaymentEvent
-    data class Duplicate(val transactionId: String) : PaymentEvent
+    data class Created(
+        val payment: PaymentEntity,
+    ) : PaymentEvent
+
+    data class Sent(
+        val payment: PaymentEntity,
+    ) : PaymentEvent
+
+    data class Received(
+        val payment: PaymentEntity,
+    ) : PaymentEvent
+
+    data class Verified(
+        val payment: PaymentEntity,
+    ) : PaymentEvent
+
+    data class Settled(
+        val payment: PaymentEntity,
+        val txHash: String,
+    ) : PaymentEvent
+
+    data class Rejected(
+        val transactionId: String,
+        val reason: PaymentValidationResult,
+    ) : PaymentEvent
+
+    data class Duplicate(
+        val transactionId: String,
+    ) : PaymentEvent
 }
 
+@Suppress("LongMethod", "MaxLineLength", "UnusedParameter")
 class PaymentRepository(
     private val paymentDao: PaymentDao,
     private val walletDao: WalletDao,
     private val identityKeyStore: IdentityKeyStore,
+    private val notifier: Notifier? = null,
+    private val db: KnitDatabase? = null,
 ) {
     private val _events = MutableSharedFlow<PaymentEvent>(extraBufferCapacity = 64)
     val events: Flow<PaymentEvent> = _events.asSharedFlow()
@@ -45,6 +75,16 @@ class PaymentRepository(
 
     suspend fun getPendingSettlementPayments(): List<PaymentEntity> = paymentDao.getPendingSettlementPayments()
 
+    private fun isSameWallet(
+        id1: String,
+        id2: String,
+    ): Boolean {
+        if (id1.equals(id2, ignoreCase = true)) return true
+        val clean1 = id1.removePrefix("wallet-").trim()
+        val clean2 = id2.removePrefix("wallet-").trim()
+        return clean1.isNotBlank() && clean1.equals(clean2, ignoreCase = true)
+    }
+
     /**
      * Initializes a primary demo wallet if none exists yet.
      */
@@ -55,9 +95,25 @@ class PaymentRepository(
         initialBalance: Long = 50000L, // ₹500.00
     ): WalletEntity {
         val existing = walletDao.getPrimaryWallet()
-        if (existing != null) return existing
+        if (existing != null) {
+            if (existing.walletId != walletId) {
+                walletDao.deleteWallet(existing.walletId)
+                val updated =
+                    existing.copy(
+                        walletId = walletId,
+                        publicKey = publicKey ?: existing.publicKey,
+                        updatedAt = System.currentTimeMillis(),
+                    )
+                walletDao.upsertWallet(updated)
+                return updated
+            }
+            return existing
+        }
 
-        val walletPublicKey = publicKey ?: runCatching { identityKeyStore.keys().publicBundle.encoded }.getOrElse { "fallback-pub-key" }
+        val walletPublicKey =
+            publicKey ?: runCatching {
+                identityKeyStore.keys().publicBundle.encoded
+            }.getOrElse { "fallback-pub-key" }
         val wallet =
             WalletEntity(
                 walletId = walletId,
@@ -81,10 +137,12 @@ class PaymentRepository(
         initialBalance: Long,
     ): WalletEntity {
         val existingPrimary = walletDao.getPrimaryWallet()
-        val targetId = existingPrimary?.walletId ?: walletId
+        if (existingPrimary != null && existingPrimary.walletId != walletId) {
+            walletDao.deleteWallet(existingPrimary.walletId)
+        }
         val wallet =
             WalletEntity(
-                walletId = targetId,
+                walletId = walletId,
                 publicKey = publicKey,
                 displayName = displayName,
                 currency = "INR",
@@ -112,6 +170,7 @@ class PaymentRepository(
         // 1. Atomic reservation check & update
         val reservedRows = walletDao.reserveOutboundAmount(wallet.walletId, amount)
         if (reservedRows <= 0) {
+            Log.w("OFFPAY", "OFFPAY_SEND_FAILED reason=insufficient-funds available=${wallet.availableBalance}")
             _events.tryEmit(PaymentEvent.Rejected("insufficient-funds", PaymentValidationResult.INVALID_AMOUNT))
             return null
         }
@@ -123,9 +182,9 @@ class PaymentRepository(
 
         // 3. Build PaymentPayload
         val now = System.currentTimeMillis()
-        val txId = "tx-${now}-${(1000..9999).random()}"
+        val txId = "tx-$now-${(1000..9999).random()}"
 
-        val payload =
+        val initialPayload =
             PaymentPayload(
                 transactionId = txId,
                 senderPublicKey = currentWallet.publicKey,
@@ -141,7 +200,8 @@ class PaymentRepository(
             )
 
         // 4. Cryptographically sign payload
-        val sig = PaymentSigner.sign(payload, signRaw)
+        val sig = PaymentSigner.sign(initialPayload, signRaw)
+        val payload = initialPayload.copy(signature = sig)
 
         // 5. Save PaymentEntity locally in OFFLINE_SENT state
         val entity =
@@ -163,10 +223,41 @@ class PaymentRepository(
             )
         paymentDao.insertPayment(entity)
 
+        Log.d("OFFPAY", "OFFPAY_SEND_CREATED txId=$txId sender=${currentWallet.walletId} receiver=$receiverWalletId")
+        Log.d("OFFPAY", "OFFPAY_SEND_RESERVED transactionId=$txId reservedAmount=$amount")
+
         _events.tryEmit(PaymentEvent.Created(entity))
         _events.tryEmit(PaymentEvent.Sent(entity))
 
         return payload to entity
+    }
+
+    suspend fun ensurePrimaryWallet(): WalletEntity {
+        val existing = walletDao.getPrimaryWallet()
+        if (existing != null) return existing
+
+        val pubKey = runCatching { identityKeyStore.keys().publicBundle.encoded }.getOrElse { "fallback-pub-key" }
+        val nodeId =
+            runCatching {
+                val bundle = PublicKeyBundle.decode(pubKey)
+                if (bundle != null) NodeId.fromPublicKeyBundle(pubKey) else pubKey
+            }.getOrElse { pubKey }
+
+        val walletId = "wallet-$nodeId"
+        val wallet =
+            WalletEntity(
+                walletId = walletId,
+                publicKey = pubKey,
+                displayName = "OffPay Wallet (${nodeId.take(6)})",
+                currency = "INR",
+                settledBalance = 50000L,
+                pendingInbound = 0L,
+                pendingOutbound = 0L,
+                nextNonce = 1L,
+                isDemo = true,
+            )
+        walletDao.upsertWallet(wallet)
+        return wallet
     }
 
     /**
@@ -181,19 +272,31 @@ class PaymentRepository(
         wire: WireEnvelope,
         fromNodeId: String,
     ): PaymentValidationResult {
-        val myWallet = walletDao.getPrimaryWallet()
+        val myWallet = walletDao.getPrimaryWallet() ?: ensurePrimaryWallet()
+
+        Log.d("OFFPAY", "OFFPAY_PACKET_RECEIVED transactionId=${payload.transactionId} amount=${payload.amount}")
 
         // 1. Receiver Identity Check
-        val myWalletId = myWallet?.walletId ?: identityKeyStore.keys().publicBundle.encoded
-        val myPublicKey = myWallet?.publicKey ?: identityKeyStore.keys().publicBundle.encoded
+        val myWalletId = myWallet.walletId
+        val myPublicKey = myWallet.publicKey
+        val rawNodeId = myWalletId.removePrefix("wallet-").trim()
 
-        if (payload.receiverWalletId != myWalletId && payload.receiverPublicKey != myPublicKey) {
+        val isForMe =
+            isSameWallet(payload.receiverWalletId, myWalletId) ||
+                payload.receiverPublicKey.equals(myPublicKey, ignoreCase = true) ||
+                (rawNodeId.isNotBlank() && payload.receiverWalletId.contains(rawNodeId, ignoreCase = true)) ||
+                (rawNodeId.isNotBlank() && payload.receiverPublicKey.contains(rawNodeId, ignoreCase = true)) ||
+                (myPublicKey.isNotBlank() && payload.receiverWalletId.contains(myPublicKey, ignoreCase = true))
+
+        if (!isForMe) {
+            Log.d("OFFPAY", "Payment ${payload.transactionId} is for another recipient, ignoring locally")
             return PaymentValidationResult.VALID
         }
 
         // 2. Anti-replay & Duplicate Check
         val existing = paymentDao.getPaymentById(payload.transactionId)
         if (existing != null) {
+            Log.d("OFFPAY", "OFFPAY_RECEIVE_DUPLICATE transactionId=${payload.transactionId}")
             _events.tryEmit(PaymentEvent.Duplicate(payload.transactionId))
             return PaymentValidationResult.DUPLICATE_TRANSACTION
         }
@@ -201,12 +304,14 @@ class PaymentRepository(
         // 3. Protocol & Cryptographic Signature Validation
         val validationResult = PaymentProtocolValidator.validate(payload, signature, paymentDao)
         if (validationResult != PaymentValidationResult.VALID) {
+            Log.w("OFFPAY", "OFFPAY_VALIDATION_FAILED transactionId=${payload.transactionId} reason=$validationResult")
             _events.tryEmit(PaymentEvent.Rejected(payload.transactionId, validationResult))
             return validationResult
         }
 
+        Log.d("OFFPAY", "OFFPAY_SIGNATURE_VALID transactionId=${payload.transactionId} signatureValid=true")
+
         // 4. Record Payment as PENDING_SETTLEMENT
-        Log.d("PaymentRepository", "Processing inbound payment ${env.id} from node $fromNodeId")
         val entity =
             PaymentEntity(
                 transactionId = payload.transactionId,
@@ -226,12 +331,36 @@ class PaymentRepository(
                 hopCount = wire.hops,
                 expiryTime = payload.expiryTime,
             )
-        paymentDao.insertPayment(entity)
 
-        // 5. Update local receiver pending inbound balance (NOT settled/spendable balance)
-        if (myWallet != null) {
+        // 5. Atomic DB insertion & balance update
+        if (db != null) {
+            db.withWriteTransaction {
+                paymentDao.insertPayment(entity)
+                walletDao.receiveInboundPending(myWallet.walletId, payload.amount)
+            }
+        } else {
+            paymentDao.insertPayment(entity)
             walletDao.receiveInboundPending(myWallet.walletId, payload.amount)
         }
+
+        Log.d("OFFPAY", "OFFPAY_PAYMENT_INSERTED transactionId=${payload.transactionId} databaseInsert=true")
+        Log.d("OFFPAY", "OFFPAY_PENDING_INBOUND_UPDATED transactionId=${payload.transactionId} amount=${payload.amount}")
+
+        var notifTriggered = false
+        if (notifier != null) {
+            notifier.notifyPaymentReceived(
+                senderWalletId = payload.senderWalletId,
+                amountPaise = payload.amount,
+                transactionId = payload.transactionId,
+            )
+            notifTriggered = true
+            Log.d("OFFPAY", "OFFPAY_NOTIFICATION_SENT transactionId=${payload.transactionId}")
+        }
+
+        Log.d(
+            "OFFPAY",
+            "OFFPAY_RECEIVE: transactionId=${payload.transactionId} amount=${payload.amount} notificationTriggered=$notifTriggered",
+        )
 
         _events.tryEmit(PaymentEvent.Received(entity))
         _events.tryEmit(PaymentEvent.Verified(entity))
@@ -240,55 +369,133 @@ class PaymentRepository(
     }
 
     /**
+     * Marks a payment status as SUBMITTED while on-chain settlement is in progress.
+     */
+    suspend fun markPaymentSubmitted(transactionId: String) {
+        val payment = paymentDao.getPaymentById(transactionId) ?: return
+        if (payment.status == "SETTLED") return
+        paymentDao.updateStatus(transactionId, "SUBMITTED", "PENDING", txHash = null)
+    }
+
+    /**
+     * Resets a payment status back to PENDING_SETTLEMENT or OFFLINE_SENT if settlement failed transiently.
+     */
+    suspend fun resetPaymentPending(transactionId: String) {
+        val payment = paymentDao.getPaymentById(transactionId) ?: return
+        if (payment.status == "SETTLED") return
+        val myWalletId = walletDao.getPrimaryWallet()?.walletId ?: ""
+        val originalStatus =
+            if (payment.createdOffline && isSameWallet(payment.senderWalletId, myWalletId)) {
+                "OFFLINE_SENT"
+            } else {
+                "PENDING_SETTLEMENT"
+            }
+        paymentDao.updateStatus(transactionId, originalStatus, "PENDING", txHash = null)
+    }
+
+    /**
      * Releases an outbound reservation if a payment expires or is rejected.
      */
-    suspend fun releaseOutboundReservation(transactionId: String, amount: Long, reason: PaymentValidationResult) {
+    suspend fun releaseOutboundReservation(
+        transactionId: String,
+        amount: Long,
+        reason: PaymentValidationResult,
+    ) {
         val payment = paymentDao.getPaymentById(transactionId) ?: return
         if (payment.status == "SETTLED" || payment.status == "REJECTED" || payment.status == "EXPIRED") return
 
-        paymentDao.updateStatus(transactionId, "REJECTED", "FAILED", txHash = null)
-        walletDao.releaseOutboundAmount(payment.senderWalletId, amount)
+        val targetWalletId = payment.senderWalletId
+        if (db != null) {
+            db.withWriteTransaction {
+                paymentDao.updateStatus(transactionId, "REJECTED", "FAILED", txHash = null)
+                walletDao.releaseOutboundAmount(targetWalletId, amount)
+            }
+        } else {
+            paymentDao.updateStatus(transactionId, "REJECTED", "FAILED", txHash = null)
+            walletDao.releaseOutboundAmount(targetWalletId, amount)
+        }
         _events.tryEmit(PaymentEvent.Rejected(transactionId, reason))
     }
 
     /**
      * Confirms on-chain settlement for an outbound payment (Step 5 callback).
+     * Deducts amount from settled balance and clears pending outbound reservation.
      */
-    suspend fun confirmOutboundSettlement(transactionId: String, amount: Long, txHash: String) {
+    suspend fun confirmOutboundSettlement(
+        transactionId: String,
+        amount: Long,
+        txHash: String,
+    ) {
         val payment = paymentDao.getPaymentById(transactionId) ?: return
         if (payment.status == "SETTLED") return // Idempotent
 
-        paymentDao.updateStatus(transactionId, "SETTLED", "CONFIRMED", txHash = txHash)
-        walletDao.confirmOutboundSettled(payment.senderWalletId, amount)
+        val primaryWallet = walletDao.getPrimaryWallet()
+        val targetWalletId = primaryWallet?.walletId ?: payment.senderWalletId
+        if (db != null) {
+            db.withWriteTransaction {
+                paymentDao.updateStatus(transactionId, "SETTLED", "CONFIRMED", txHash = txHash)
+                walletDao.confirmOutboundSettled(targetWalletId, amount)
+            }
+        } else {
+            paymentDao.updateStatus(transactionId, "SETTLED", "CONFIRMED", txHash = txHash)
+            walletDao.confirmOutboundSettled(targetWalletId, amount)
+        }
 
         val updated = paymentDao.getPaymentById(transactionId) ?: payment
         _events.tryEmit(PaymentEvent.Settled(updated, txHash))
+        notifier?.notifyPaymentSettled(amount, transactionId, txHash)
     }
 
     /**
      * Confirms on-chain settlement for an inbound payment (Step 5 callback).
-     * Shifts funds from pendingInbound to settledBalance (making them spendable).
+     * Adds amount to settled balance and clears pending inbound (making funds spendable).
      */
-    suspend fun confirmInboundSettlement(transactionId: String, amount: Long, txHash: String) {
+    suspend fun confirmInboundSettlement(
+        transactionId: String,
+        amount: Long,
+        txHash: String,
+    ) {
         val payment = paymentDao.getPaymentById(transactionId) ?: return
         if (payment.status == "SETTLED") return // Idempotent
 
-        paymentDao.updateStatus(transactionId, "SETTLED", "CONFIRMED", txHash = txHash)
-        walletDao.confirmInboundSettled(payment.receiverWalletId, amount)
+        val primaryWallet = walletDao.getPrimaryWallet()
+        val targetWalletId = primaryWallet?.walletId ?: payment.receiverWalletId
+        if (db != null) {
+            db.withWriteTransaction {
+                paymentDao.updateStatus(transactionId, "SETTLED", "CONFIRMED", txHash = txHash)
+                walletDao.confirmInboundSettled(targetWalletId, amount)
+            }
+        } else {
+            paymentDao.updateStatus(transactionId, "SETTLED", "CONFIRMED", txHash = txHash)
+            walletDao.confirmInboundSettled(targetWalletId, amount)
+        }
 
         val updated = paymentDao.getPaymentById(transactionId) ?: payment
         _events.tryEmit(PaymentEvent.Settled(updated, txHash))
+        notifier?.notifyPaymentSettled(amount, transactionId, txHash)
     }
 
     /**
      * Rolls back an unconfirmed inbound payment if on-chain settlement fails or conflicts.
      */
-    suspend fun rollbackInboundPending(transactionId: String, amount: Long, reason: PaymentValidationResult) {
+    suspend fun rollbackInboundPending(
+        transactionId: String,
+        amount: Long,
+        reason: PaymentValidationResult,
+    ) {
         val payment = paymentDao.getPaymentById(transactionId) ?: return
         if (payment.status == "REJECTED" || payment.status == "CONFLICT") return
 
-        paymentDao.updateStatus(transactionId, "CONFLICT", "FAILED", txHash = null)
-        walletDao.rollbackInboundPending(payment.receiverWalletId, amount)
+        val targetWalletId = payment.receiverWalletId
+        if (db != null) {
+            db.withWriteTransaction {
+                paymentDao.updateStatus(transactionId, "CONFLICT", "FAILED", txHash = null)
+                walletDao.rollbackInboundPending(targetWalletId, amount)
+            }
+        } else {
+            paymentDao.updateStatus(transactionId, "CONFLICT", "FAILED", txHash = null)
+            walletDao.rollbackInboundPending(targetWalletId, amount)
+        }
         _events.tryEmit(PaymentEvent.Rejected(transactionId, reason))
     }
 }

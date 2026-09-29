@@ -372,7 +372,7 @@ internal fun ChatListScreenContent(
                                 },
                             )
                             DropdownMenuItem(
-                                text = { Text("MST OfflinePay") },
+                                text = { Text("Ventra Wallet") },
                                 leadingIcon = { Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false

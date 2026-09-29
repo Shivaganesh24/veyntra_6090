@@ -498,6 +498,82 @@ class MessageNotifier(
         postNotification(null, ID_SUMMARY, summary)
     }
 
+    override fun notifyPaymentReceived(
+        senderWalletId: String,
+        amountPaise: Long,
+        transactionId: String,
+    ) {
+        if (!canPost()) return
+        val amountFormatted = "₹%.2f".format(amountPaise / 100.0)
+        val senderShort = senderWalletId.removePrefix("wallet-").take(8)
+        val title = "Payment Received"
+        val body = "$amountFormatted received from $senderShort\nStatus: Pending Settlement"
+
+        val intent =
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                transactionId.hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val notification =
+            NotificationCompat
+                .Builder(context, NotificationChannels.ALERTS)
+                .setSmallIcon(R.drawable.ic_stat_mesh)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .build()
+
+        postNotification(transactionId, transactionId.hashCode(), notification)
+    }
+
+    override fun notifyPaymentSettled(
+        amountPaise: Long,
+        transactionId: String,
+        txHash: String?,
+    ) {
+        if (!canPost()) return
+        val amountFormatted = "₹%.2f".format(amountPaise / 100.0)
+        val title = "Payment Settled"
+        val txShort = if (!txHash.isNullOrBlank()) "\nMST Tx: ${txHash.take(12)}..." else ""
+        val body = "$amountFormatted is now settled$txShort"
+
+        val intent =
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+        val pendingIntent =
+            PendingIntent.getActivity(
+                context,
+                "settled-$transactionId".hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val notification =
+            NotificationCompat
+                .Builder(context, NotificationChannels.ALERTS)
+                .setSmallIcon(R.drawable.ic_stat_mesh)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .build()
+
+        postNotification("settled-$transactionId", "settled-$transactionId".hashCode(), notification)
+    }
+
     /**
      * Posts [notification] under [id] (with an optional [tag]). The POST_NOTIFICATIONS permission check is
      * inlined here — right at the `manager.notify` call — because lint's flow analysis only recognizes the

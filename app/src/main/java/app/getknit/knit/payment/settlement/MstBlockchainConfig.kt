@@ -8,6 +8,7 @@ object MstBlockchainConfig {
     const val MST_RPC_URL = "https://testnetrpc.mstblockchain.com"
     const val MST_CHAIN_ID = 91562037L
     const val CONTRACT_ADDRESS = "0x417404c95724d8E4aF6fb368CA18196FC4bEA143"
+    const val RELAYER_ADDRESS = "0x29e55e6691803ab357b6777e6a94ce5b086fbbed"
     const val EXPLORER_BASE_URL = "https://testnet.mstscan.com"
     const val NATIVE_CURRENCY_SYMBOL = "tMSTC"
     const val REQUIRED_CONFIRMATIONS = 1

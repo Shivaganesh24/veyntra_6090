@@ -22,6 +22,7 @@ import app.getknit.knit.data.message.MentionStore
 import app.getknit.knit.data.message.MessageEntity
 import app.getknit.knit.data.message.replyRef
 import app.getknit.knit.data.message.withReply
+import app.getknit.knit.data.payment.PaymentRepository
 import app.getknit.knit.data.peer.MetPeerRepository
 import app.getknit.knit.data.peer.PeerEntity
 import app.getknit.knit.data.reaction.ReactionEntity
@@ -46,7 +47,6 @@ import app.getknit.knit.mesh.crypto.sealBytes
 import app.getknit.knit.mesh.lora.LoraCtl
 import app.getknit.knit.mesh.lora.LoraFramePolicy
 import app.getknit.knit.mesh.lora.LoraSizeHint
-import app.getknit.knit.data.payment.PaymentRepository
 import app.getknit.knit.mesh.protocol.ChatContent
 import app.getknit.knit.mesh.protocol.CommonsPost
 import app.getknit.knit.mesh.protocol.EncEnvelope
@@ -812,17 +812,24 @@ class MeshManager(
 
     @OptIn(ExperimentalSerializationApi::class)
     suspend fun sendPaymentTransaction(payload: PaymentPayload) {
-        val bytes = cryptoCbor.encodeToByteArray(
-            PaymentPayload.serializer(),
-            payload,
-        )
-        val env = RelayEnvelope(
-            type = FrameType.PAYMENT,
-            id = payload.transactionId,
-            senderId = identity.nodeId(),
-            sentAt = clock(),
-            recipientId = payload.receiverWalletId,
-            payload = bytes,
+        val bytes =
+            cryptoCbor.encodeToByteArray(
+                PaymentPayload.serializer(),
+                payload,
+            )
+        val recipientNodeId = payload.receiverWalletId.removePrefix("wallet-")
+        val env =
+            RelayEnvelope(
+                type = FrameType.PAYMENT,
+                id = payload.transactionId,
+                senderId = identity.nodeId(),
+                sentAt = clock(),
+                recipientId = recipientNodeId,
+                payload = bytes,
+            )
+        Log.d(
+            "OFFPAY",
+            "OFFPAY_SEND_TRANSMITTED transactionId=${payload.transactionId} recipientId=$recipientNodeId amount=${payload.amount}",
         )
         originateSigned(env)
     }

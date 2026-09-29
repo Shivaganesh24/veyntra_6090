@@ -16,7 +16,11 @@ object OffPayQrPayload {
         val requestId: String?,
     )
 
-    fun encode(walletId: String, publicKey: String, amount: Long = 0L): String {
+    fun encode(
+        walletId: String,
+        publicKey: String,
+        amount: Long = 0L,
+    ): String {
         val reqId = "req-${System.currentTimeMillis()}-${(1000..9999).random()}"
         return "offpay:v1?w=$walletId&pk=$publicKey&amt=$amount&req=$reqId"
     }
@@ -28,10 +32,11 @@ object OffPayQrPayload {
         return runCatching {
             if (str.startsWith("offpay:v1?")) {
                 val query = str.substringAfter("offpay:v1?")
-                val params = query.split("&").associate { param ->
-                    val parts = param.split("=", limit = 2)
-                    if (parts.size == 2) parts[0] to parts[1] else parts[0] to ""
-                }
+                val params =
+                    query.split("&").associate { param ->
+                        val parts = param.split("=", limit = 2)
+                        if (parts.size == 2) parts[0] to parts[1] else parts[0] to ""
+                    }
                 val walletId = params["w"]
                 if (walletId.isNullOrBlank()) return null
                 val publicKey = params["pk"]?.takeIf { it.isNotBlank() } ?: walletId

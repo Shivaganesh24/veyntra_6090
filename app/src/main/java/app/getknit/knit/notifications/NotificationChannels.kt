@@ -46,7 +46,7 @@ object NotificationChannels {
 
     // App group
     const val STATUS = "knit_mesh" // ongoing foreground notification; id kept stable
-    const val ALERTS = "knit_alerts"
+    const val ALERTS = "knit_alerts_v2" // Bumped to _v2 for HIGH importance payment & offline alerts
 
     // The "someone nearby is open to chat" cue (presence/OpenToChatWatch). Its own channel rather than
     // [ALERTS] so the user can mute the nudge without muting connection alerts — and because [ALERTS] is LOW
@@ -59,11 +59,10 @@ object NotificationChannels {
     private const val LEGACY_MESSAGES = "knit_messages"
     private const val LEGACY_MENTIONS = "knit_mentions"
 
-    // The pre-bump DEFAULT-importance Groups channel; replaced by [GROUPS] (_v2) at HIGH importance.
+    // The pre-bump DEFAULT/LOW-importance channels; replaced by _v2 at HIGH importance.
     private const val LEGACY_GROUPS = "knit_msg_groups"
-
-    // The pre-bump LOW-importance Requests channel; replaced by [REQUESTS] (_v2) at HIGH importance.
     private const val LEGACY_REQUESTS = "knit_msg_requests"
+    private const val LEGACY_ALERTS = "knit_alerts"
 
     /** The message channel for a conversation [kind]. (Mentions route to [MENTIONS] separately.) */
     fun channelFor(kind: ConversationKind): String =
@@ -187,7 +186,7 @@ object NotificationChannels {
                 context,
                 ALERTS,
                 GROUP_APP,
-                NotificationManagerCompat.IMPORTANCE_LOW,
+                NotificationManagerCompat.IMPORTANCE_HIGH,
                 R.string.channel_alerts_name,
                 R.string.channel_alerts_desc,
             ),
@@ -208,6 +207,7 @@ object NotificationChannels {
         manager.deleteNotificationChannel(LEGACY_MENTIONS)
         manager.deleteNotificationChannel(LEGACY_GROUPS)
         manager.deleteNotificationChannel(LEGACY_REQUESTS)
+        manager.deleteNotificationChannel(LEGACY_ALERTS)
     }
 
     private fun channel(

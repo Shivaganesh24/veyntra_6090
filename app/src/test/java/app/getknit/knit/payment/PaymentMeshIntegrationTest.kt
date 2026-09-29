@@ -17,6 +17,9 @@ import app.getknit.knit.mesh.crypto.TinkInit
 import app.getknit.knit.mesh.protocol.FrameType
 import app.getknit.knit.mesh.protocol.RelayEnvelope
 import app.getknit.knit.mesh.protocol.WireEnvelope
+import app.getknit.knit.notifications.NotifConversation
+import app.getknit.knit.notifications.NotifMessage
+import app.getknit.knit.notifications.Notifier
 import app.getknit.knit.payment.crypto.PaymentSigner
 import app.getknit.knit.payment.protocol.PaymentPayload
 import app.getknit.knit.payment.protocol.PaymentProtocolValidator
@@ -190,12 +193,13 @@ class PaymentMeshIntegrationTest {
             val identityKeyStore = IdentityKeyStore(secret3)
             val repository = PaymentRepository(paymentDao, walletDao, identityKeyStore)
 
-            val env = RelayEnvelope(
-                type = FrameType.PAYMENT,
-                id = payloadForOther.transactionId,
-                senderId = "sender-node",
-                payload = ByteArray(0),
-            )
+            val env =
+                RelayEnvelope(
+                    type = FrameType.PAYMENT,
+                    id = payloadForOther.transactionId,
+                    senderId = "sender-node",
+                    payload = ByteArray(0),
+                )
             val wire = WireEnvelope(sig = Base64.getDecoder().decode(sig), signed = ByteArray(0))
 
             val result = repository.processInboundPayment(payloadForOther, sig, env, wire, "node-other")
@@ -232,13 +236,14 @@ class PaymentMeshIntegrationTest {
 
             // Simulate Phone B (intermediate relay node):
             // Phone B receives wire with hops = 1 and forwards it as wireRelayed with hops = 2
-            val wireHop1 = WireEnvelope(
-                ttl = 8,
-                hops = 1,
-                relay = true,
-                sig = Base64.getDecoder().decode(sig),
-                signed = ByteArray(0),
-            )
+            val wireHop1 =
+                WireEnvelope(
+                    ttl = 8,
+                    hops = 1,
+                    relay = true,
+                    sig = Base64.getDecoder().decode(sig),
+                    signed = ByteArray(0),
+                )
             val wireHop2 = wireHop1.relayed() // Hops incremented to 2
 
             // Phone C (recipient) verifies signature on wireHop2
@@ -250,4 +255,113 @@ class PaymentMeshIntegrationTest {
             assertEquals(PaymentValidationResult.VALID, resultValidation)
             assertEquals(2, wireHop2.hops)
         }
+
+    @Test
+    fun `duplicate inbound payment does not trigger second notification or duplicate credit`() =
+        runTest {
+            val now = System.currentTimeMillis()
+            val fakeNotifier = FakeNotifier()
+
+            val secret4 = KeystoreSecret(context, "test-alias-4", "identity4.key", keyStoreFile.parentFile!!)
+            val identityKeyStoreReceiver = IdentityKeyStore(secret4)
+            val receiverRepo = PaymentRepository(paymentDao, walletDao, identityKeyStoreReceiver, fakeNotifier)
+
+            val myWallet = receiverRepo.ensurePrimaryWallet()
+
+            val payload =
+                PaymentPayload(
+                    transactionId = "tx-dup-1",
+                    senderPublicKey = senderBundle.encoded,
+                    receiverPublicKey = myWallet.publicKey,
+                    senderWalletId = "wallet-sender",
+                    receiverWalletId = myWallet.walletId,
+                    amount = 10000L,
+                    currency = "INR",
+                    timestamp = now,
+                    nonce = 1L,
+                    createdOffline = true,
+                    expiryTime = now + 86400000L,
+                )
+            val sig = PaymentSigner.sign(payload, senderCrypto::signRaw)
+            val env = RelayEnvelope(type = FrameType.PAYMENT, id = payload.transactionId, senderId = "sender-node", payload = ByteArray(0))
+            val wire = WireEnvelope(sig = Base64.getDecoder().decode(sig), signed = ByteArray(0))
+
+            // First processing: SUCCESS
+            val result1 = receiverRepo.processInboundPayment(payload, sig, env, wire, "node-sender")
+            assertEquals(PaymentValidationResult.VALID, result1)
+            assertEquals(1, fakeNotifier.receivedNotifications.size)
+            assertEquals(10000L, walletDao.getWallet(myWallet.walletId)?.pendingInbound)
+
+            // Second processing (duplicate): DUPLICATE_TRANSACTION
+            val result2 = receiverRepo.processInboundPayment(payload, sig, env, wire, "node-sender")
+            assertEquals(PaymentValidationResult.DUPLICATE_TRANSACTION, result2)
+
+            // Notification count remains 1 and pending inbound remains 10000L
+            assertEquals(1, fakeNotifier.receivedNotifications.size)
+            assertEquals(10000L, walletDao.getWallet(myWallet.walletId)?.pendingInbound)
+        }
+}
+
+@Suppress("EmptyFunctionBlock")
+class FakeNotifier : Notifier {
+    val receivedNotifications = mutableListOf<Triple<String, Long, String>>()
+
+    override fun createChannel() { /* No-op */ }
+
+    override fun notify(
+        incoming: NotifMessage,
+        conversation: NotifConversation,
+        selfId: String,
+        selfName: String,
+        selfAvatarBytes: ByteArray?,
+    ) { /* No-op */ }
+
+    override fun notifyTransferOffer(
+        peerId: String,
+        peerName: String,
+        peerAvatarBytes: ByteArray?,
+        fileName: String,
+        sizeBytes: Long?,
+    ) { /* No-op */ }
+
+    override fun notifyMention(
+        incoming: NotifMessage,
+        conversation: NotifConversation,
+        selfId: String,
+        selfName: String,
+        selfAvatarBytes: ByteArray?,
+    ) { /* No-op */ }
+
+    override fun onReplied(
+        notificationTag: String,
+        text: String,
+        selfId: String,
+        selfName: String,
+        selfAvatarBytes: ByteArray?,
+    ) { /* No-op */ }
+
+    override fun setVisibleConversation(conversationId: String?) { /* No-op */ }
+
+    override fun clearConversation(conversationId: String) { /* No-op */ }
+
+    override fun onDismissed(tag: String) { /* No-op */ }
+
+    override fun notifyMessageRequests(count: Int) { /* No-op */ }
+
+    override fun setRequestsVisible(visible: Boolean) { /* No-op */ }
+
+    override fun notifyOpenToChat(
+        names: List<String>,
+        avatarBytes: ByteArray?,
+    ) { /* No-op */ }
+
+    override fun clearOpenToChat() { /* No-op */ }
+
+    override fun notifyPaymentReceived(
+        senderWalletId: String,
+        amountPaise: Long,
+        transactionId: String,
+    ) {
+        receivedNotifications.add(Triple(senderWalletId, amountPaise, transactionId))
+    }
 }

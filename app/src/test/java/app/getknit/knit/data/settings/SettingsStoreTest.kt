@@ -19,6 +19,37 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
+import androidx.datastore.core.FileStorage
+import androidx.datastore.core.Storage
+import androidx.datastore.core.StorageConnection
+import androidx.datastore.core.WriteScope
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.PreferencesFileSerializer
+
+private class WindowsSafeStorage(
+    private val produceFile: () -> File,
+) : Storage<Preferences> {
+    private val delegate = FileStorage(PreferencesFileSerializer) { produceFile() }
+
+    override fun createConnection(): StorageConnection<Preferences> {
+        val file = produceFile()
+        val connection = delegate.createConnection()
+        return object : StorageConnection<Preferences> by connection {
+            override suspend fun writeScope(block: suspend WriteScope<Preferences>.() -> Unit) {
+                connection.writeScope {
+                    val innerScope = object : WriteScope<Preferences> by this {
+                        override suspend fun writeData(value: Preferences) {
+                            file.delete()
+                            this@writeScope.writeData(value)
+                        }
+                    }
+                    block(innerScope)
+                }
+            }
+        }
+    }
+}
+
 /**
  * Round-trips [SettingsStore] over a real Preferences DataStore backed by a temp file. The DataStore's
  * internal actor is launched in [TestScope.backgroundScope] so `runTest` doesn't hang waiting for it to
@@ -35,7 +66,12 @@ class SettingsStoreTest {
     private fun TestScope.newStore(): SettingsStore {
         val folder = tmp.newFolder("ds-${counter.incrementAndGet()}")
         val file = File(folder, "settings.preferences_pb")
-        return SettingsStore(PreferenceDataStoreFactory.create(scope = backgroundScope) { file })
+        return SettingsStore(
+            PreferenceDataStoreFactory.create(
+                storage = WindowsSafeStorage { file },
+                scope = backgroundScope,
+            ),
+        )
     }
 
     @Test

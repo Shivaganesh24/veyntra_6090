@@ -70,7 +70,10 @@ object PaymentProtocolValidator {
         return PaymentValidationResult.VALID
     }
 
-    private fun checkCurrency(currency: String, supportedCurrency: String): PaymentValidationResult {
+    private fun checkCurrency(
+        currency: String,
+        supportedCurrency: String,
+    ): PaymentValidationResult {
         if (currency.isBlank()) return PaymentValidationResult.INVALID_CURRENCY
         if (currency != supportedCurrency) return PaymentValidationResult.INVALID_CURRENCY
         return PaymentValidationResult.VALID
@@ -81,10 +84,23 @@ object PaymentProtocolValidator {
         if (payload.receiverPublicKey.isBlank()) return PaymentValidationResult.INVALID_IDENTITY
         if (payload.senderWalletId.isBlank()) return PaymentValidationResult.INVALID_IDENTITY
         if (payload.receiverWalletId.isBlank()) return PaymentValidationResult.INVALID_IDENTITY
+
+        val cleanSenderWallet = payload.senderWalletId.removePrefix("wallet-").trim()
+        val cleanReceiverWallet = payload.receiverWalletId.removePrefix("wallet-").trim()
+        if (cleanSenderWallet.equals(cleanReceiverWallet, ignoreCase = true) ||
+            payload.senderPublicKey.equals(payload.receiverPublicKey, ignoreCase = true)
+        ) {
+            return PaymentValidationResult.INVALID_IDENTITY
+        }
+
         return PaymentValidationResult.VALID
     }
 
-    private fun checkTimestamps(timestamp: Long, expiryTime: Long, currentClock: Long): PaymentValidationResult {
+    private fun checkTimestamps(
+        timestamp: Long,
+        expiryTime: Long,
+        currentClock: Long,
+    ): PaymentValidationResult {
         if (expiryTime <= currentClock) return PaymentValidationResult.EXPIRED
         if (timestamp > currentClock + Protocol.MAX_FUTURE_SKEW_MS) return PaymentValidationResult.MALFORMED_PAYLOAD
         return PaymentValidationResult.VALID
@@ -95,13 +111,15 @@ object PaymentProtocolValidator {
         signature: String,
         paymentDao: PaymentDao?,
     ): PaymentValidationResult {
-        if (signature.isBlank()) {
+        val effectiveSig = payload.signature.ifEmpty { signature }
+        if (effectiveSig.isBlank()) {
             return PaymentValidationResult.INVALID_SIGNATURE
         }
-        val senderBundle = PublicKeyBundle.decode(payload.senderPublicKey)
-            ?: return PaymentValidationResult.INVALID_IDENTITY
+        val senderBundle =
+            PublicKeyBundle.decode(payload.senderPublicKey)
+                ?: return PaymentValidationResult.INVALID_IDENTITY
 
-        val isSigValid = PaymentSigner.verify(payload, signature, senderBundle)
+        val isSigValid = PaymentSigner.verify(payload, effectiveSig, senderBundle)
         if (!isSigValid) {
             return PaymentValidationResult.INVALID_SIGNATURE
         }

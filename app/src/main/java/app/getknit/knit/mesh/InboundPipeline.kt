@@ -25,6 +25,7 @@ import app.getknit.knit.data.message.StatusNotices
 import app.getknit.knit.data.message.groupFaceIds
 import app.getknit.knit.data.message.groupTitle
 import app.getknit.knit.data.message.withReply
+import app.getknit.knit.data.payment.PaymentRepository
 import app.getknit.knit.data.peer.PeerEntity
 import app.getknit.knit.data.reaction.ReactionEntity
 import app.getknit.knit.data.settings.InboundSettings
@@ -39,7 +40,6 @@ import app.getknit.knit.mesh.crypto.AttachmentCrypto
 import app.getknit.knit.mesh.crypto.MessageContent
 import app.getknit.knit.mesh.crypto.MessageContentV2
 import app.getknit.knit.mesh.crypto.MessageCrypto
-import app.getknit.knit.data.payment.PaymentRepository
 import app.getknit.knit.mesh.crypto.PublicKeyBundle
 import app.getknit.knit.mesh.crypto.XeddsaVerify
 import app.getknit.knit.mesh.crypto.b64
@@ -63,7 +63,6 @@ import app.getknit.knit.mesh.protocol.GroupLeaveContent
 import app.getknit.knit.mesh.protocol.KeyReqContent
 import app.getknit.knit.mesh.protocol.LinkPreviewBlob
 import app.getknit.knit.mesh.protocol.ProfileContent
-import app.getknit.knit.payment.protocol.PaymentPayload
 import app.getknit.knit.mesh.protocol.ProfilePayload
 import app.getknit.knit.mesh.protocol.Protocol
 import app.getknit.knit.mesh.protocol.ReactionContent
@@ -83,6 +82,7 @@ import app.getknit.knit.notifications.NotifFace
 import app.getknit.knit.notifications.Notifier
 import app.getknit.knit.notifications.incomingNotification
 import app.getknit.knit.notifications.mentionNotification
+import app.getknit.knit.payment.protocol.PaymentPayload
 import kotlinx.coroutines.flow.first
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -351,7 +351,10 @@ class InboundPipeline(
         }
     }
 
-    private suspend fun handleControlFrame(env: RelayEnvelope, fromNodeId: String) {
+    private suspend fun handleControlFrame(
+        env: RelayEnvelope,
+        fromNodeId: String,
+    ) {
         when (env.type) {
             FrameType.BLOB_REQ -> {
                 WireCodec.decodePayload<BlobReqContent>(env.payload)?.let { blobExchange.onRequest(it.hash, fromNodeId) }
@@ -372,8 +375,12 @@ class InboundPipeline(
         wire: WireEnvelope,
         fromNodeId: String,
     ) {
-        val payload = WireCodec.decodePayload<PaymentPayload>(env.payload) ?: return
-        val signature = b64(wire.sig)
+        val payload = WireCodec.decodePayload<PaymentPayload>(env.payload)
+        if (payload == null) {
+            Log.w("OFFPAY", "OFFPAY_RECEIVE_FAILED transactionId=${env.id} reason=MALFORMED_PAYLOAD")
+            return
+        }
+        val signature = payload.signature.ifEmpty { b64(wire.sig) }
         paymentRepository?.processInboundPayment(payload, signature, env, wire, fromNodeId)
     }
 
