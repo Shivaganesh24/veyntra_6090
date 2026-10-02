@@ -14,7 +14,7 @@
 Joining a private spool used to be six steps across two pasted secrets: turn the plane on (and read the
 disclosure), add the relay, retype `wss://host/spool/v1?k=token`, wait for it to connect, tap Join, paste
 `knit-commons:v1:…`. An operator running a household or team instance now shares one link; the newcomer
-taps it (or shares it to Knit, or pastes it on the relays screen), reads one sheet that names the host
+taps it (or shares it to Veyntra, or pastes it on the relays screen), reads one sheet that names the host
 and says what the link carries, and confirms once. The relay is stored, the plane is switched on — with
 the one-time disclosure folded into that same sheet when it has not been shown yet — the room is joined
 when the link carries one, and the relay is dialled immediately rather than at the next reconcile tick.
@@ -42,7 +42,7 @@ Body { v: 1, u: str, c?: bstr(32), n?: str }   // the house CBOR: definite-lengt
   prove anyway (that the host is who the sender says it is) the sheet puts in the largest type on it.
 - `v` exists for the change `ignoreUnknownKeys` cannot absorb; a field added to `Body` is additive.
 
-Text forms, both accepted by `RelayInvite.parse`: `https://getknit.app/r#<base64url(Body)>` (the invite
+Text forms, both accepted by `RelayInvite.parse`: `https://veyntra.app/r#<base64url(Body)>` (the invite
 rides the fragment, which a browser never sends to the server — it carries a bearer token) and
 `knit://r/<…>`. A link is found anywhere in pasted text. There is **no bare form**: an invite is short
 (~60–330 bytes) and only ever minted as a link, and the same probe (`looksLikeInvite`) tells the share
@@ -80,7 +80,7 @@ without a sheet, and the sheet is built around one question — *do you trust th
 - **On the phone:** the relay row's Share / Copy actions mint `u` as stored (token included) plus the
   room's `c`/`n` when this device has joined it. "Invite to my instance" means the room; a member who
   wants to share the relay alone leaves the room first.
-- **By the daemon** (out of repo): `knit-spool commons-invite` SHOULD print `https://getknit.app/r#…`
+- **By the daemon** (out of repo): `knit-spool commons-invite` SHOULD print `https://veyntra.app/r#…`
   beside `knit-commons:v1:…`, with `u` the spool's public URL including `?k=` when it is private, `c`
   the same 32 bytes, and `n` `SPOOL_COMMONS_NAME`. The vectors below are the contract.
 
@@ -99,9 +99,9 @@ bareInvite = u "wss://lax.spool.getknit.app/spool/v1", no c, no n:
 
 ## 6. Out of repo
 
-`https://getknit.app/r` needs what `docs/CONTACT_CARD.md` §6 describes for `/c`: the assetlinks file
+`https://veyntra.app/r` needs what `docs/CONTACT_CARD.md` §6 describes for `/c`: the assetlinks file
 listing both signing certificates, and a landing page that builds the `knit://r/<fragment>` link
-client-side ("Open in Knit") beside the install links, without redirecting `/r` to `/r/`. Until then an
+client-side ("Open in Veyntra") beside the install links, without redirecting `/r` to `/r/`. Until then an
 unverified https link opens in the browser on Android 12+; the `knit://` form and share-to-Knit work
 regardless. Lab devices (debug-signed) never verify — `adb shell pm set-app-links --package
 app.getknit.knit 2 getknit.app`, or use the `knit://` form.

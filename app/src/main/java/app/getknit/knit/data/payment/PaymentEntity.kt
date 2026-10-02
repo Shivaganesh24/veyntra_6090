@@ -35,4 +35,5 @@ data class PaymentEntity(
     val blockchainTransactionHash: String? = null,
     val hopCount: Int = 0,
     val expiryTime: Long,
+    val receiverEvmAddress: String = "",
 )

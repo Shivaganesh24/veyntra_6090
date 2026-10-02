@@ -1,6 +1,6 @@
 # LoRa bridge (Meshtastic over BLE) — the long-range Nearby-room + DM plane
 
-How Knit carries **broadcast (Nearby-room) frames and sealed 1:1 DMs** over LoRa via a Meshtastic board
+How Veyntra carries **broadcast (Nearby-room) frames and sealed 1:1 DMs** over LoRa via a Meshtastic board
 attached over BLE. The design rationale is ADR 038 (the plane) and ADR 039 (DMs); this file is the
 operational detail. Behind `BuildConfig.LORA_PLANE`, which is **on everywhere since 2.5.0** (ADR
 2026-09.6gtm; `-PloraPlane=false` rebuilds the dark artifact 2.3.0–2.4.x shipped). Visible is not enabled:

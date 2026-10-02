@@ -1,6 +1,6 @@
 # Architecture
 
-Orientation for the Knit codebase. For full design detail see [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md).
+Orientation for the Veyntra codebase. For full design detail see [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md).
 
 ## What this is
 

@@ -1,18 +1,18 @@
-# Contributing to Knit
+# Contributing to Veyntra
 
-Thanks for your interest in Knit — an offline, serverless, end-to-end-encrypted mesh messenger for
+Thanks for your interest in Veyntra — an offline, serverless, end-to-end-encrypted mesh messenger for
 Android. Contributions are welcome, within the expectations below.
 
 ## Support expectations (read this first)
 
-Knit is released **as-is** under the [GNU GPL v3.0-or-later](COPYING). It is developed on a
+Veyntra is released **as-is** under the [GNU GPL v3.0-or-later](COPYING). It is developed on a
 **best-effort, hobby basis**, with **no support, warranty, or response-time guarantee** of any kind —
 this is the "NO WARRANTY" clause of the GPL, stated plainly:
 
 - Issues and pull requests are welcome, but may not be triaged, answered, or accepted.
 - There is **no commitment** to fix bugs, review contributions on any timeline, or maintain
   compatibility.
-- Do not depend on Knit where failure matters. It is experimental software driving low-level radios.
+- Do not depend on Veyntra where failure matters. It is experimental software driving low-level radios.
 
 If that works for you, read on.
 
@@ -61,7 +61,7 @@ commit.
 
 ## Where to submit
 
-Development and contributions happen on GitHub at <https://github.com/getknit/knit>. Open issues and
+Development and contributions happen on GitHub at <https://github.com/veyntra/veyntra>. Open issues and
 pull requests there; the issue and pull-request templates will guide you through what to include. Keep
 each pull request focused on a single change with a clear description of what and why.
 

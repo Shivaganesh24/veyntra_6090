@@ -9,6 +9,7 @@ import app.getknit.knit.mesh.crypto.PublicKeyBundle
 import app.getknit.knit.mesh.protocol.RelayEnvelope
 import app.getknit.knit.mesh.protocol.WireEnvelope
 import app.getknit.knit.notifications.Notifier
+import app.getknit.knit.payment.crypto.EvmAddress
 import app.getknit.knit.payment.crypto.PaymentSigner
 import app.getknit.knit.payment.protocol.PaymentPayload
 import app.getknit.knit.payment.protocol.PaymentProtocolValidator
@@ -16,6 +17,7 @@ import app.getknit.knit.payment.protocol.PaymentValidationResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import java.nio.charset.StandardCharsets
 
 /**
  * Observable events emitted when payment states change.
@@ -86,6 +88,14 @@ class PaymentRepository(
     }
 
     /**
+     * Derives a deterministic EVM address for a wallet using the device's key bytes.
+     */
+    private fun deriveEvmAddressForWallet(walletId: String, publicKey: String): String {
+        val seed = (walletId + "|" + publicKey).toByteArray(StandardCharsets.UTF_8)
+        return EvmAddress.deriveEvmAddress(seed)
+    }
+
+    /**
      * Initializes a primary demo wallet if none exists yet.
      */
     suspend fun initializeDemoWallet(
@@ -93,15 +103,29 @@ class PaymentRepository(
         displayName: String,
         publicKey: String? = null,
         initialBalance: Long = 50000L, // ₹500.00
+        evmAddress: String? = null,
     ): WalletEntity {
+        val walletPublicKey =
+            publicKey ?: runCatching {
+                identityKeyStore.keys().publicBundle.encoded
+            }.getOrElse { "fallback-pub-key" }
+
+        val derivedEvmAddress =
+            if (EvmAddress.isValidEvmAddress(evmAddress)) {
+                evmAddress!!
+            } else {
+                deriveEvmAddressForWallet(walletId, walletPublicKey)
+            }
+
         val existing = walletDao.getPrimaryWallet()
         if (existing != null) {
-            if (existing.walletId != walletId) {
+            if (existing.walletId != walletId || existing.evmAddress != derivedEvmAddress) {
                 walletDao.deleteWallet(existing.walletId)
                 val updated =
                     existing.copy(
                         walletId = walletId,
-                        publicKey = publicKey ?: existing.publicKey,
+                        publicKey = walletPublicKey,
+                        evmAddress = derivedEvmAddress,
                         updatedAt = System.currentTimeMillis(),
                     )
                 walletDao.upsertWallet(updated)
@@ -110,10 +134,6 @@ class PaymentRepository(
             return existing
         }
 
-        val walletPublicKey =
-            publicKey ?: runCatching {
-                identityKeyStore.keys().publicBundle.encoded
-            }.getOrElse { "fallback-pub-key" }
         val wallet =
             WalletEntity(
                 walletId = walletId,
@@ -125,6 +145,7 @@ class PaymentRepository(
                 pendingOutbound = 0L,
                 nextNonce = 1L,
                 isDemo = true,
+                evmAddress = derivedEvmAddress,
             )
         walletDao.upsertWallet(wallet)
         return wallet
@@ -135,11 +156,19 @@ class PaymentRepository(
         displayName: String,
         publicKey: String,
         initialBalance: Long,
+        evmAddress: String? = null,
     ): WalletEntity {
         val existingPrimary = walletDao.getPrimaryWallet()
         if (existingPrimary != null && existingPrimary.walletId != walletId) {
             walletDao.deleteWallet(existingPrimary.walletId)
         }
+        val derivedEvmAddress =
+            if (EvmAddress.isValidEvmAddress(evmAddress)) {
+                evmAddress!!
+            } else {
+                deriveEvmAddressForWallet(walletId, publicKey)
+            }
+
         val wallet =
             WalletEntity(
                 walletId = walletId,
@@ -151,6 +180,7 @@ class PaymentRepository(
                 pendingOutbound = 0L,
                 nextNonce = existingPrimary?.nextNonce ?: 1L,
                 isDemo = true,
+                evmAddress = derivedEvmAddress,
             )
         walletDao.upsertWallet(wallet)
         return wallet
@@ -164,6 +194,7 @@ class PaymentRepository(
         receiverPublicKey: String,
         amount: Long,
         signRaw: (ByteArray) -> ByteArray,
+        receiverEvmAddress: String? = null,
     ): Pair<PaymentPayload, PaymentEntity>? {
         val wallet = walletDao.getPrimaryWallet() ?: return null
 
@@ -180,7 +211,15 @@ class PaymentRepository(
         val currentNonce = currentWallet.nextNonce
         walletDao.incrementNonce(wallet.walletId)
 
-        // 3. Build PaymentPayload
+        // 3. Determine verified receiver EVM address
+        val finalReceiverEvmAddress =
+            if (EvmAddress.isValidEvmAddress(receiverEvmAddress)) {
+                receiverEvmAddress!!
+            } else {
+                deriveEvmAddressForWallet(receiverWalletId, receiverPublicKey)
+            }
+
+        // 4. Build PaymentPayload
         val now = System.currentTimeMillis()
         val txId = "tx-$now-${(1000..9999).random()}"
 
@@ -197,13 +236,14 @@ class PaymentRepository(
                 nonce = currentNonce,
                 createdOffline = true,
                 expiryTime = now + (24 * 60 * 60 * 1000L), // 24h
+                receiverEvmAddress = finalReceiverEvmAddress,
             )
 
-        // 4. Cryptographically sign payload
+        // 5. Cryptographically sign payload (includes receiverEvmAddress)
         val sig = PaymentSigner.sign(initialPayload, signRaw)
         val payload = initialPayload.copy(signature = sig)
 
-        // 5. Save PaymentEntity locally in OFFLINE_SENT state
+        // 6. Save PaymentEntity locally in OFFLINE_SENT state
         val entity =
             PaymentEntity(
                 transactionId = txId,
@@ -220,10 +260,11 @@ class PaymentRepository(
                 createdOffline = true,
                 settlementStatus = "PENDING",
                 expiryTime = payload.expiryTime,
+                receiverEvmAddress = finalReceiverEvmAddress,
             )
         paymentDao.insertPayment(entity)
 
-        Log.d("OFFPAY", "OFFPAY_SEND_CREATED txId=$txId sender=${currentWallet.walletId} receiver=$receiverWalletId")
+        Log.d("OFFPAY", "OFFPAY_SEND_CREATED txId=$txId sender=${currentWallet.walletId} receiver=$receiverWalletId evm=$finalReceiverEvmAddress")
         Log.d("OFFPAY", "OFFPAY_SEND_RESERVED transactionId=$txId reservedAmount=$amount")
 
         _events.tryEmit(PaymentEvent.Created(entity))
@@ -244,6 +285,8 @@ class PaymentRepository(
             }.getOrElse { pubKey }
 
         val walletId = "wallet-$nodeId"
+        val derivedEvmAddress = deriveEvmAddressForWallet(walletId, pubKey)
+
         val wallet =
             WalletEntity(
                 walletId = walletId,
@@ -255,6 +298,7 @@ class PaymentRepository(
                 pendingOutbound = 0L,
                 nextNonce = 1L,
                 isDemo = true,
+                evmAddress = derivedEvmAddress,
             )
         walletDao.upsertWallet(wallet)
         return wallet
@@ -264,7 +308,7 @@ class PaymentRepository(
      * Processes an incoming payment frame received from the mesh network.
      * Offline received payments increase [pendingInbound] ONLY and are NOT spendable until settled.
      */
-    @Suppress("UnusedParameter")
+    @Suppress("UnusedParameter", "CyclomaticComplexMethod")
     suspend fun processInboundPayment(
         payload: PaymentPayload,
         signature: String,
@@ -286,7 +330,7 @@ class PaymentRepository(
                 payload.receiverPublicKey.equals(myPublicKey, ignoreCase = true) ||
                 (rawNodeId.isNotBlank() && payload.receiverWalletId.contains(rawNodeId, ignoreCase = true)) ||
                 (rawNodeId.isNotBlank() && payload.receiverPublicKey.contains(rawNodeId, ignoreCase = true)) ||
-                (myPublicKey.isNotBlank() && payload.receiverWalletId.contains(myPublicKey, ignoreCase = true))
+                (myPublicKey.isNotBlank() && payload.receiverPublicKey.contains(rawNodeId, ignoreCase = true))
 
         if (!isForMe) {
             Log.d("OFFPAY", "Payment ${payload.transactionId} is for another recipient, ignoring locally")
@@ -311,7 +355,14 @@ class PaymentRepository(
 
         Log.d("OFFPAY", "OFFPAY_SIGNATURE_VALID transactionId=${payload.transactionId} signatureValid=true")
 
-        // 4. Record Payment as PENDING_SETTLEMENT
+        // 4. Record Payment as PENDING_SETTLEMENT, carrying receiverEvmAddress
+        val finalReceiverEvmAddress =
+            if (EvmAddress.isValidEvmAddress(payload.receiverEvmAddress)) {
+                payload.receiverEvmAddress
+            } else {
+                myWallet.evmAddress
+            }
+
         val entity =
             PaymentEntity(
                 transactionId = payload.transactionId,
@@ -330,6 +381,7 @@ class PaymentRepository(
                 settlementStatus = "PENDING",
                 hopCount = wire.hops,
                 expiryTime = payload.expiryTime,
+                receiverEvmAddress = finalReceiverEvmAddress,
             )
 
         // 5. Atomic DB insertion & balance update
@@ -343,7 +395,7 @@ class PaymentRepository(
             walletDao.receiveInboundPending(myWallet.walletId, payload.amount)
         }
 
-        Log.d("OFFPAY", "OFFPAY_PAYMENT_INSERTED transactionId=${payload.transactionId} databaseInsert=true")
+        Log.d("OFFPAY", "OFFPAY_PAYMENT_INSERTED transactionId=${payload.transactionId} databaseInsert=true evm=$finalReceiverEvmAddress")
         Log.d("OFFPAY", "OFFPAY_PENDING_INBOUND_UPDATED transactionId=${payload.transactionId} amount=${payload.amount}")
 
         var notifTriggered = false

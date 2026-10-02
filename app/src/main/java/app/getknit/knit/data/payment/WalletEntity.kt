@@ -14,6 +14,7 @@ import androidx.room3.PrimaryKey
  * - [totalBalance]: Represented total = `settledBalance + pendingInbound`.
  * - [nextNonce]: Monotonically increasing nonce counter per wallet.
  * - [isDemo]: Clearly distinguishes demo hackathon wallet balances from actual on-chain funds.
+ * - [evmAddress]: Genuine 20-byte EVM/MST hex address (0x...) derived deterministically for on-chain settlement.
  */
 @Entity(tableName = "wallets")
 data class WalletEntity(
@@ -26,6 +27,7 @@ data class WalletEntity(
     val pendingOutbound: Long = 0L,
     val nextNonce: Long = 1L,
     val isDemo: Boolean = true,
+    val evmAddress: String = "",
     val updatedAt: Long = System.currentTimeMillis(),
 ) {
     val availableBalance: Long

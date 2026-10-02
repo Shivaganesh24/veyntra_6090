@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 15,
-    "identityHash": "002d5c99bc291c250b6fba8818838011",
+    "identityHash": "5a6850791f7df1c4dca1619b3265d800",
     "entities": [
       {
         "tableName": "messages",
@@ -1517,7 +1517,7 @@
       },
       {
         "tableName": "payments",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transactionId` TEXT NOT NULL, `senderPublicKey` TEXT NOT NULL, `receiverPublicKey` TEXT NOT NULL, `senderWalletId` TEXT NOT NULL, `receiverWalletId` TEXT NOT NULL, `amount` INTEGER NOT NULL, `currency` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `nonce` INTEGER NOT NULL, `previousTransactionReference` TEXT, `status` TEXT NOT NULL, `signature` TEXT NOT NULL, `createdOffline` INTEGER NOT NULL, `settlementStatus` TEXT NOT NULL, `blockchainTransactionHash` TEXT, `hopCount` INTEGER NOT NULL, `expiryTime` INTEGER NOT NULL, PRIMARY KEY(`transactionId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transactionId` TEXT NOT NULL, `senderPublicKey` TEXT NOT NULL, `receiverPublicKey` TEXT NOT NULL, `senderWalletId` TEXT NOT NULL, `receiverWalletId` TEXT NOT NULL, `amount` INTEGER NOT NULL, `currency` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `nonce` INTEGER NOT NULL, `previousTransactionReference` TEXT, `status` TEXT NOT NULL, `signature` TEXT NOT NULL, `createdOffline` INTEGER NOT NULL, `settlementStatus` TEXT NOT NULL, `blockchainTransactionHash` TEXT, `hopCount` INTEGER NOT NULL, `expiryTime` INTEGER NOT NULL, `receiverEvmAddress` TEXT NOT NULL, PRIMARY KEY(`transactionId`))",
         "fields": [
           {
             "fieldPath": "transactionId",
@@ -1618,6 +1618,12 @@
             "columnName": "expiryTime",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "receiverEvmAddress",
+            "columnName": "receiverEvmAddress",
+            "affinity": "TEXT",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -1676,7 +1682,7 @@
       },
       {
         "tableName": "wallets",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`walletId` TEXT NOT NULL, `publicKey` TEXT NOT NULL, `displayName` TEXT NOT NULL, `currency` TEXT NOT NULL, `settledBalance` INTEGER NOT NULL, `pendingInbound` INTEGER NOT NULL, `pendingOutbound` INTEGER NOT NULL, `nextNonce` INTEGER NOT NULL, `isDemo` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`walletId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`walletId` TEXT NOT NULL, `publicKey` TEXT NOT NULL, `displayName` TEXT NOT NULL, `currency` TEXT NOT NULL, `settledBalance` INTEGER NOT NULL, `pendingInbound` INTEGER NOT NULL, `pendingOutbound` INTEGER NOT NULL, `nextNonce` INTEGER NOT NULL, `isDemo` INTEGER NOT NULL, `evmAddress` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`walletId`))",
         "fields": [
           {
             "fieldPath": "walletId",
@@ -1733,6 +1739,12 @@
             "notNull": true
           },
           {
+            "fieldPath": "evmAddress",
+            "columnName": "evmAddress",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
             "fieldPath": "updatedAt",
             "columnName": "updatedAt",
             "affinity": "INTEGER",
@@ -1749,7 +1761,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '002d5c99bc291c250b6fba8818838011')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5a6850791f7df1c4dca1619b3265d800')"
     ]
   }
 }

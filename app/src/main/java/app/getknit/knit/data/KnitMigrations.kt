@@ -388,6 +388,17 @@ object KnitMigrations {
             }
         }
 
+    /**
+     * v14 → v15: `wallets.evmAddress` and `payments.receiverEvmAddress` columns for MST Blockchain settlement.
+     */
+    val MIGRATION_14_15 =
+        object : Migration(14, 15) {
+            override suspend fun migrate(connection: SQLiteConnection) {
+                connection.execSQL("ALTER TABLE `wallets` ADD COLUMN `evmAddress` TEXT NOT NULL DEFAULT ''")
+                connection.execSQL("ALTER TABLE `payments` ADD COLUMN `receiverEvmAddress` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
     /** All migrations, applied by Room in order. */
     val ALL: Array<Migration> =
         arrayOf(
@@ -404,5 +415,6 @@ object KnitMigrations {
             MIGRATION_11_12,
             MIGRATION_12_13,
             MIGRATION_13_14,
+            MIGRATION_14_15,
         )
 }

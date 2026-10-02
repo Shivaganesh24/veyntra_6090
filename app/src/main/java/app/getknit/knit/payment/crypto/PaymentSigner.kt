@@ -26,6 +26,7 @@ import java.util.Base64
  * 11. previousTransactionReference (UTF-8 bytes, or empty string if null)
  * 12. createdOffline (1 byte: 0x01 if true, 0x00 if false)
  * 13. expiryTime (8 bytes, BigEndian Long)
+ * 14. receiverEvmAddress (UTF-8 bytes)
  */
 object PaymentSigner {
     private const val SIGNING_LABEL = "mst/payment/v1"
@@ -42,11 +43,12 @@ object PaymentSigner {
         val receiverWalletBytes = payload.receiverWalletId.toByteArray(StandardCharsets.UTF_8)
         val currencyBytes = payload.currency.toByteArray(StandardCharsets.UTF_8)
         val prevRefBytes = (payload.previousTransactionReference ?: "").toByteArray(StandardCharsets.UTF_8)
+        val receiverEvmBytes = payload.receiverEvmAddress.toByteArray(StandardCharsets.UTF_8)
 
         val totalLength =
             labelBytes.size + txIdBytes.size + senderPkBytes.size + receiverPkBytes.size +
                 senderWalletBytes.size + receiverWalletBytes.size + 8 + currencyBytes.size +
-                8 + 8 + prevRefBytes.size + 1 + 8
+                8 + 8 + prevRefBytes.size + 1 + 8 + receiverEvmBytes.size
 
         val buffer = ByteBuffer.allocate(totalLength)
         buffer.put(labelBytes)
@@ -62,6 +64,7 @@ object PaymentSigner {
         buffer.put(prevRefBytes)
         buffer.put(if (payload.createdOffline) 1.toByte() else 0.toByte())
         buffer.putLong(payload.expiryTime)
+        buffer.put(receiverEvmBytes)
 
         return buffer.array()
     }

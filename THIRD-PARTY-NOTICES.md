@@ -1,8 +1,8 @@
 # Third-Party Notices
 
-Knit is licensed under the **GNU General Public License v3.0 or later** (see [`COPYING`](COPYING)).
+Veyntra is licensed under the **GNU General Public License v3.0 or later** (see [`COPYING`](COPYING)).
 It redistributes, and depends on, the third-party open-source components listed below. Every component
-shipped in the Knit APK is under a **GPL-compatible** license (Apache-2.0, BSD, MIT, or the Unicode
+shipped in the Veyntra APK is under a **GPL-compatible** license (Apache-2.0, BSD, MIT, or the Unicode
 License); the project deliberately carries **no Google Play services / GMS** dependency.
 
 This file is provided for attribution and to satisfy the notice-retention terms of the Apache License

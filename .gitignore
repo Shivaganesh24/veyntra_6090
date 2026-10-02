@@ -24,6 +24,9 @@ keystore.properties
 google-services.json
 .env
 .env.*
+relayer/node_modules/
+relayer/dist/
+relayer/.env
 
 # Marketing captures kept out of the public repo — the generator scripts and finished masters live
 # under .private/ (.private/scripts/, .private/shots/, .private/trailer/, .private/docs/). Run from the

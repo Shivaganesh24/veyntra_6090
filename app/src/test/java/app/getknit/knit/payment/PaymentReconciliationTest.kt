@@ -211,7 +211,7 @@ class PaymentReconciliationTest {
         }
 
     @Test
-    fun `online detection hardcodes all pending payments to confirmed settled`() =
+    fun `unconfigured settlement leaves pending payments in pending settlement state`() =
         runTest {
             fakeSettlement.configured = false
             fakeGate.setOnline(false)
@@ -250,7 +250,7 @@ class PaymentReconciliationTest {
 
             manager.reconcilePendingPayments()
             val payment = paymentDao.getPaymentById("tx-online-1")
-            assertEquals("SETTLED", payment?.status)
-            assertNotNull(payment?.blockchainTransactionHash)
+            assertEquals("PENDING_SETTLEMENT", payment?.status)
+            assertEquals(null, payment?.blockchainTransactionHash)
         }
 }

@@ -1,12 +1,12 @@
 <div align="center">
 
-# Knit
+# Veyntra
 
 **Message the people around you when there is no network at all — an end-to-end-encrypted mesh messenger for Android.**
 
 Phones talk straight to each other over Wi-Fi Aware and Bluetooth LE, relaying for one another hop by hop, so a message reaches further than any one radio does. No internet, no accounts, no Google Play services.
 
-🌐 **[getknit.app](https://getknit.app)** — the Knit website
+🌐 **[veyntra.app](https://veyntra.app)** — the Veyntra website
 
 ![Platform](https://img.shields.io/badge/Android-10%2B%20(API%2029)-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&logoColor=white)
@@ -14,11 +14,11 @@ Phones talk straight to each other over Wi-Fi Aware and Bluetooth LE, relaying f
 ![Transports](https://img.shields.io/badge/radios-Wi--Fi%20Aware%20%2B%20BLE-00BCD4)
 ![Encryption](https://img.shields.io/badge/DMs%20%26%20groups-E2E%20%2B%20forward%20secrecy-2EA043?logo=signal&logoColor=white)
 ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)
-[![Latest release](https://img.shields.io/github/v/release/getknit/knit?label=release&color=E55E4C)](https://github.com/getknit/knit/releases/latest)
-[![Knit changelog on whatsnew.fyi](https://whatsnew.fyi/product/knit/badge.svg)](https://whatsnew.fyi/product/knit)
+[![Latest release](https://img.shields.io/github/v/release/veyntra/veyntra?label=release&color=E55E4C)](https://github.com/veyntra/veyntra/releases/latest)
+[![Veyntra changelog on whatsnew.fyi](https://whatsnew.fyi/product/veyntra/badge.svg)](https://whatsnew.fyi/product/veyntra)
 
 <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01_chat-nearby.png"
-     alt="Knit's Nearby broadcast room: a header reading &quot;Connected to 3 mesh nodes&quot;, a line carried in over a LoRa board, a photo attachment, and a link-preview card the sender fetched and sent with the link"
+     alt="Veyntra's Nearby broadcast room: a header reading &quot;Connected to 3 mesh nodes&quot;, a line carried in over a LoRa board, a photo attachment, and a link-preview card the sender fetched and sent with the link"
      width="300">
 
 <sub>The public <b>Nearby</b> room, relayed over Wi-Fi Aware + BLE with no internet — photos, link previews,
@@ -28,9 +28,9 @@ and a line that came the long way over a LoRa radio.</sub>
 
 ---
 
-## What is Knit
+## What is Veyntra
 
-Knit keeps nearby phones talking when nothing else is available — no internet, no cell service, no
+Veyntra keeps nearby phones talking when nothing else is available — no internet, no cell service, no
 accounts, no servers. It forms an ad-hoc **mesh** directly over **Wi-Fi Aware (NAN)** and **Bluetooth
 LE**, running both radios at once. A message you send goes to every device in range, and each of those
 passes it on, so it leap-frogs across phones to people you were never in range of yourself. Duplicates
@@ -38,7 +38,7 @@ are discarded, hop-count and TTL bound the flood, and a store-and-forward layer 
 flood misses to whoever comes into range later. Above all that sits an ordinary modern messenger:
 conversation list, bubbles, reactions, attachments.
 
-Bridgefy, Briar, and Meshtastic go after the same problem. What Knit does differently is run **two
+Bridgefy, Briar, and Meshtastic go after the same problem. What Veyntra does differently is run **two
 radios at once** (Wi-Fi Aware + BLE) behind one transport seam, with **no Google Nearby / GMS
 dependency** and **end-to-end encryption** on direct and group messages — and it needs no hardware
 beyond an Android phone, though it will happily use a Meshtastic board if you have one.
@@ -74,7 +74,7 @@ beyond an Android phone, though it will happily use a Meshtastic board if you ha
 - [License](#-license)
 
 > [!NOTE]
-> Knit is a complete messenger: a **"Nearby" public broadcast room**, **1:1 direct messages**, and
+> Veyntra is a complete messenger: a **"Nearby" public broadcast room**, **1:1 direct messages**, and
 > **multi-member group chats**, with profiles (name / status / avatar), emoji reactions, @-mentions,
 > photos, files, and voice notes. **Direct and group messages are end-to-end encrypted** — the body,
 > mentions, and attachments are readable only by the people they were sent to, even though every
@@ -84,7 +84,7 @@ beyond an Android phone, though it will happily use a Meshtastic board if you ha
 
 ## 📥 Install
 
-Knit needs **Android 10 (API 29) or newer** — see [Requirements](#-requirements). Both channels ship the
+Veyntra needs **Android 10 (API 29) or newer** — see [Requirements](#-requirements). Both channels ship the
 same app; pick one and stay on it (see the note below).
 
 <div align="center">
@@ -95,16 +95,16 @@ same app; pick one and stay on it (see the note below).
 </div>
 
 - **Google Play** — open
-  [the listing](https://play.google.com/store/apps/details?id=app.getknit.knit) (or search *Knit* in the
+  [the listing](https://play.google.com/store/apps/details?id=app.getknit.knit) (or search *Veyntra* in the
   Play Store app) and tap **Install**; updates arrive automatically.
-- **F-Droid** — install the [F-Droid client](https://f-droid.org/) and search for *Knit*, or open
+- **F-Droid** — install the [F-Droid client](https://f-droid.org/) and search for *Veyntra*, or open
   [the package page](https://f-droid.org/packages/app.getknit.knit/) and tap **Download APK**. F-Droid
-  **rebuilds Knit from source and byte-compares** the result against our published release, then
+  **rebuilds Veyntra from source and byte-compares** the result against our published release, then
   distributes *our* signed APK verbatim — see [the reproducibility
   contract](.agents/context/distribution.md).
 - **Direct APK** — the same F-Droid-verified, self-signed universal APK is attached to every
-  [GitHub Release](https://github.com/getknit/knit/releases), for sideloading without any store.
-- **From a nearby phone, no store or internet needed** — an installed copy of Knit can hand itself to
+  [GitHub Release](https://github.com/veyntra/veyntra/releases), for sideloading without any store.
+- **From a nearby phone, no store or internet needed** — an installed copy of Veyntra can hand itself to
   another device: **Install offline** in the app menu merges its installed splits into a universal APK,
   re-signs it on-device, and sends it over Quick Share or Bluetooth. Open the received file on the other
   phone and allow installing it.
@@ -135,7 +135,7 @@ even recognize a frame still forwards it — an old build is never a black hole.
 
 ## 🧭 Use it when
 
-Knit is built for situations where there's **no reliable network but people are physically nearby**:
+Veyntra is built for situations where there's **no reliable network but people are physically nearby**:
 
 - **Off-grid & remote** — hiking, camping, festivals, sailing, or anywhere without cell coverage.
 - **Disaster & emergency** — earthquakes, storms, or outages that knock out cell towers and internet.
@@ -148,7 +148,7 @@ Knit is built for situations where there's **no reliable network but people are 
 
 - **Two radios at once, so there are more paths to you** — **Wi-Fi Aware (NAN)** and **Bluetooth LE**
   both run behind a single `MeshTransport` seam (`CompositeMeshTransport`), with no Google Nearby / GMS.
-  Knit advertises, discovers, connects, and floods with hop-count/TTL bounds and dedup; relays
+  Veyntra advertises, discovers, connects, and floods with hop-count/TTL bounds and dedup; relays
   rebroadcast on a **jitter with overhear suppression**, so a dense cluster doesn't storm itself. A
   phone with only one of the two radios still meshes over that one.
 - **Broadcast room, 1:1 DMs, and group chats** — a conversation list and contact picker, message
@@ -214,7 +214,7 @@ Knit is built for situations where there's **no reliable network but people are 
   channel for mentions.
 - **Always-on background mesh** via a foreground service, kept healthy by a heartbeat alarm,
   significant-motion re-scan, and radio-availability recovery; prompts to disable battery optimization.
-- **Offline app sharing** — hand Knit to a nearby phone with no store: the installed splits are merged
+- **Offline app sharing** — hand Veyntra to a nearby phone with no store: the installed splits are merged
   into a universal APK and re-signed on-device (ARSCLib + apksig).
 - **Material 3** UI with a coral brand theme and full dark mode — following your phone, pinned to light
   or dark in Settings, or taking your wallpaper's colours if you turn those on (Android 12+). A message
@@ -258,14 +258,14 @@ Knit is built for situations where there's **no reliable network but people are 
 
 ## 🔨 Build
 
-The source lives at **<https://github.com/getknit/knit>**. You need **JDK 21** and the
+The source lives at **<https://github.com/veyntra/veyntra>**. You need **JDK 21** and the
 Android SDK — Android Studio is optional. When building from the command line without
 Studio, point Gradle at your SDK first: create a git-ignored `local.properties` containing
 `sdk.dir=/path/to/Android/Sdk`, or export `ANDROID_HOME`.
 
 ```bash
-git clone https://github.com/getknit/knit.git
-cd knit
+git clone https://github.com/veyntra/veyntra.git
+cd veyntra
 ./gradlew :app:assembleDebug        # build the debug APK (does NOT compile test sources)
 ./gradlew :app:compileDebugKotlin   # fast compile check of main sources
 ./gradlew :app:testDebugUnitTest    # JVM unit tests — mesh router, flood suppression, dedup, CBOR codec,
@@ -344,8 +344,8 @@ headless `am broadcast` bridge (`…debug.SEND` / `SENDIMG` / `STATE` / `STORE` 
 
 ## ❓ FAQ
 
-**Does Knit need the internet or a cell signal?**
-No. Knit works entirely offline. Nearby phones connect directly over Wi-Fi Aware and Bluetooth LE and
+**Does Veyntra need the internet or a cell signal?**
+No. Veyntra works entirely offline. Nearby phones connect directly over Wi-Fi Aware and Bluetooth LE and
 relay messages for each other, so it needs neither internet, cellular, nor a Wi-Fi router.
 
 **Does it require Google Play services or an account?**
@@ -362,7 +362,7 @@ on — your own phone fetches a page's title and picture for a link you type and
 message, so the people you send to never contact the site. Both are off on a fresh install, which
 therefore makes no network calls at all. (`ACCESS_NETWORK_STATE` is declared for the preview fetch alone —
 it is how the app checks that the default network actually reaches the Internet before opening a socket,
-so a phone that is only on the mesh never tries.) Knit bundles no analytics or telemetry, and a crash is
+so a phone that is only on the mesh never tries.) Veyntra bundles no analytics or telemetry, and a crash is
 kept on the phone for you to copy into a bug report, never uploaded — you can confirm all of it from the
 source and the deliberately GMS-free dependency list.
 
@@ -395,14 +395,14 @@ Aware is on Pixel 3+ and many recent devices. A phone with only one of the two r
 it.
 
 **Is it free and open source?**
-Yes — Knit is free software under the **GNU General Public License v3.0 or later**. There are no ads,
-paid tiers, or subscriptions; development is funded entirely by optional tips (see [Support](#-support)).
+Yes — Veyntra is free software under the **GNU General Public License v3.0 or later**. There are no ads,
+paid tiers, or subscriptions; development is community-driven (see [Support](#-support)).
 
 **How is it different from Bridgefy / Briar / Meshtastic?**
-Knit runs **two radios at once** (Wi-Fi Aware + Bluetooth LE) behind a single transport seam, has **no
+Veyntra runs **two radios at once** (Wi-Fi Aware + Bluetooth LE) behind a single transport seam, has **no
 Google Play services dependency**, end-to-end encrypts DMs and groups, and needs no hardware beyond an
 Android phone — where Meshtastic needs a LoRa radio. Meshtastic is complementary rather than a rival:
-pair one of its boards over Bluetooth and Knit carries the **Nearby room and 1:1 messages** across it,
+pair one of its boards over Bluetooth and Veyntra carries the **Nearby room and 1:1 messages** across it,
 kilometres past phone-to-phone range, for every phone meshed with yours. Group chats and attachments
 stay on the phone mesh or an optional relay, and the radio sits idle until you pair a board.
 
@@ -455,7 +455,7 @@ talking to, or who else is in a group. A relay's operator can hand you their rel
 makes no network calls at all. The
 protocol is specified in [`docs/SPOOL_PROTOCOL.md`](docs/SPOOL_PROTOCOL.md) with executable test
 vectors; the client implements it, and the reference spool daemon lives in
-[`getknit/knit-spool`](https://github.com/getknit/knit-spool). Knit is built around proximity meshing
+[`veyntra/veyntra-spool`](https://github.com/veyntra/veyntra-spool). Veyntra is built around proximity meshing
 either way.
 
 **Explicitly deferred (don't start without direction):**
@@ -504,20 +504,11 @@ security problems.
 
 ## 💛 Support
 
-Knit is free and open source, with no ads, no tracking, and nothing to sell you — it's funded entirely
-by tips. If it's useful to you and you'd like to chip in, you can leave a one-off tip on Ko-fi or set up
-a recurring one on Liberapay or GitHub Sponsors:
-
-[![Support on Ko-fi](https://img.shields.io/badge/Ko--fi-leave%20a%20tip-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/knit)
-[![Support on Liberapay](https://img.shields.io/badge/Liberapay-give%20recurring-F6C915?logo=liberapay&logoColor=black)](https://liberapay.com/zaventh/)
-[![Sponsor on GitHub](https://img.shields.io/badge/GitHub%20Sponsors-sponsor-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/getknit)
-
-Tips are optional and buy no special treatment — Knit is GPLv3 and stays that way. Reporting bugs and
-telling people it exists helps just as much.
+Veyntra is free and open source, with no ads, no tracking, and nothing to sell you. Reporting bugs and telling people it exists helps immensely.
 
 ## 📄 License
 
-Knit is free software, licensed under the **GNU General Public License v3.0 or later**
+Veyntra is free software, licensed under the **GNU General Public License v3.0 or later**
 ([`COPYING`](COPYING)).
 
 ```
@@ -538,7 +529,7 @@ see <https://www.gnu.org/licenses/>.
 Contributions are welcome under the same license — see [`CONTRIBUTING.md`](CONTRIBUTING.md), which
 also sets out the (deliberately modest) **support expectations**.
 
-Knit redistributes third-party open-source libraries, all under GPL-compatible licenses (Apache-2.0,
+Veyntra redistributes third-party open-source libraries, all under GPL-compatible licenses (Apache-2.0,
 BSD, MIT) and with no Google Play services; see [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) for
 the full component list and their licenses. The same list ships in the app (**Open-source licenses**, from
 the menu on the Settings screen) with every license text readable offline, and a test pins it to both

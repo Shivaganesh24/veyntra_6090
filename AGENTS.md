@@ -1,6 +1,6 @@
-# AGENTS.md — Knit
+# AGENTS.md — Veyntra
 
-Router for coding agents. Knit is an offline Android **mesh messenger** (Kotlin/Compose) that runs
+Router for coding agents. Veyntra is an offline Android **mesh messenger** (Kotlin/Compose) that runs
 **Wi-Fi Aware (NAN) + Bluetooth LE** simultaneously behind one `MeshTransport` seam
 (`CompositeMeshTransport`), no Google Nearby / GMS. This file *points* to context — load a `.agents/`
 file only when its trigger matches. Full design detail lives in `docs/`.

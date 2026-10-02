@@ -1,6 +1,6 @@
 # Security Policy
 
-Knit is an end-to-end-encrypted mesh messenger. Security reports are taken seriously, but note the
+Veyntra is an end-to-end-encrypted mesh messenger. Security reports are taken seriously, but note the
 project ships **as-is with no warranty or guaranteed response** (see [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 
 ## Reporting a vulnerability
@@ -20,11 +20,11 @@ Please include:
 Please allow reasonable time for a fix before any public disclosure. As a best-effort hobby project,
 there is no guaranteed acknowledgement or remediation timeline, but genuine reports will be reviewed.
 
-[report]: https://github.com/getknit/knit/security/advisories/new
+[report]: https://github.com/veyntra/veyntra/security/advisories/new
 
 ## Scope and known limitations
 
-Knit is experimental. Several properties are **intentional design trade-offs, not vulnerabilities** —
+Veyntra is experimental. Several properties are **intentional design trade-offs, not vulnerabilities** —
 they are documented and out of scope for reports:
 
 - **The public "Nearby" broadcast room is plaintext by design** (it has no fixed recipient set), and
