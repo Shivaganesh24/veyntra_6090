@@ -26,4 +26,5 @@ data class PaymentPayload(
     val createdOffline: Boolean = true,
     val expiryTime: Long,
     val signature: String = "",
+    val receiverEvmAddress: String = "",
 )

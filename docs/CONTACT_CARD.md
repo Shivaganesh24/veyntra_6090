@@ -40,7 +40,7 @@ sig    = Ed25519(IK_sign, "knit/card/v1" ‖ body)
   never re-encodes them (the `WireEnvelope.signed`/`sig` discipline), so a field added to `Body` is
   additive under `ignoreUnknownKeys`. `v` exists for the change that rule cannot absorb.
 
-Text forms, all accepted by `ContactCard.parse`: `https://getknit.app/c#<base64url(Signed)>` (the card
+Text forms, all accepted by `ContactCard.parse`: `https://veyntra.app/c#<base64url(Signed)>` (the card
 rides the fragment, which a browser never sends to the server), `knit://c/<…>`, the bare base64url
 string, and the legacy QR code `knit-id:v1:<nodeId>:<bundle>` (no name, no relays, self-certification
 only). A link is found anywhere in pasted text. A minimal card is ~180 bytes (~240-char link); one with a
@@ -92,7 +92,7 @@ minimalCard = no name, no sp, iat 0:
 
 ## 6. Out of repo
 
-`https://getknit.app/.well-known/assetlinks.json` must list `app.getknit.knit` with **both** signing
+`https://veyntra.app/.well-known/assetlinks.json` must list `app.getknit.knit` with **both** signing
 certificates (Play App Signing, and the distribution key F-Droid/GitHub/offline-share installs carry) for
 the `https` link to open the app on Android 12+; until then an unverified link opens in the browser, so
 the `/c` landing page must build the `knit://c/<fragment>` link client-side ("Open in Knit") beside the

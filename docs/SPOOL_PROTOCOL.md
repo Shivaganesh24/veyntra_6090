@@ -1,6 +1,6 @@
 # The spool protocol
 
-**Scoped, blinded store-and-forward relays for Knit's Internet plane.**
+**Scoped, blinded store-and-forward relays for Veyntra's Internet plane.**
 
 |                    |                                                                                                                                                                         |
 |--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -9,7 +9,7 @@
 | This revision      | 2026-08-30                                                                                                                                                              |
 | Decision record    | ADR 019 (+ M4/M5/M6 amendments, ADR 020, ADR 021, ADR 042, ADR 062)                                                                                                              |
 | Client reference   | `mesh/crypto/scope/` (`ScopeCrypto`, `SpoolPow`), `mesh/spool/` (`SpoolRecords`, `ScopeFrames`, `ScopeAttachments`, `GroupRootPolicy`, `ScopeRegistry`, `ScopeSync`)    |
-| Spool reference    | [`knit-spool`](https://github.com/getknit/knit-spool) (AGPL-3.0, separate repository) + its conformance suite                                                           |
+| Spool reference    | [`knit-spool`](https://github.com/veyntra/veyntra-spool) (AGPL-3.0, separate repository) + its conformance suite                                                           |
 | Executable anchors | `ScopeCryptoTest`, `ScopeVectorTest`, `SpoolPowTest`, `SpoolRecordsTest`, `ScopeAttachmentsTest`, `ScopeFramesTest`, `GroupRootPolicyTest`, `AttachmentDeferPolicyTest` |
 
 Both implementations implement *this file*, not each other. §13's vectors are the anchor tests'
@@ -52,7 +52,7 @@ a spool never decrypts anything, so the entire key schedule is `[Client]`.
 
 ### 1.1 Purpose
 
-Knit is an offline mesh messenger, and radio proximity is the product. This protocol extends
+Veyntra is an offline mesh messenger, and radio proximity is the product. This protocol extends
 *existing*
 conversations across the Internet when no radio path exists. It is a continuity layer for contacts
 already made over the mesh, by QR, or by exchanging a **contact card** out of band (§3.5 — two people
@@ -986,7 +986,7 @@ spool cannot read its own commons" structural rather than a promise.
 > that intro at once.
 >
 > **The invite as a link (client policy, non-normative).** The reference client also accepts the relay
-> and its room as one tappable link, `https://getknit.app/r#…`, whose body carries the spool URL (token
+> and its room as one tappable link, `https://veyntra.app/r#…`, whose body carries the spool URL (token
 > included), the same 32-byte secret and the room's name — `docs/RELAY_INVITE.md`, with its own golden
 > vectors. A daemon's `commons-invite` SHOULD print that link beside the text invite. Nothing here reaches
 > the wire: a spool never sees the link, and no §13 vector is involved.

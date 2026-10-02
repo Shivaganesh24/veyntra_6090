@@ -1,22 +1,22 @@
 ---
 changelog: "0.1"
 product:
-  name: Knit
-  vendor: Knit
-  homepage: https://getknit.app
-  id: knit
+  name: Veyntra
+  vendor: Veyntra
+  homepage: https://veyntra.app
+  id: veyntra
   description: Offline, serverless, end-to-end-encrypted mesh messenger for Android.
   platforms: [android]
   category: Communication
 document:
   updated: 2026-09-16T07:24:35Z
   coverage: partial
-  canonical: https://github.com/getknit/knit/blob/main/CHANGELOG.md
+  canonical: https://github.com/veyntra/veyntra/blob/main/CHANGELOG.md
   locale: en
-  older: https://github.com/getknit/knit/releases/tag/v2.1.0
+  older: https://github.com/veyntra/veyntra/releases/tag/v2.1.0
 ---
 
-# Knit changelog
+# Veyntra changelog
 
 ## Unreleased
 
@@ -27,23 +27,23 @@ document:
   same Open settings dialog as the location pin.
 - Scroll up through a chat and a small arrow now sits in the bottom corner to take you straight back to the
   newest message. It shows once you are a few messages up and goes away when you reach the bottom.
-- Android takes an app's permissions back after a few months without use, and Knit would then have to ask
+- Android takes an app's permissions back after a few months without use, and Veyntra would then have to ask
   for them again. The permissions page and Settings now show that switch beside the battery row, with a
   button to the page where it turns off.
-- A Meshtastic user who messages your Knit board directly now gets one automatic reply saying nobody reads
-  it and where to find Knit. The board answers each person once a day, and only if you set it up for Knit.
+- A Meshtastic user who messages your Veyntra board directly now gets one automatic reply saying nobody reads
+  it and where to find Veyntra. The board answers each person once a day, and only if you set it up for Veyntra.
 - Settings now has Backup and restore: your identity, contacts, groups and messages go into one encrypted
-  file locked by a recovery key Knit shows once. Restore it on a new phone from the welcome screen, and use
+  file locked by a recovery key Veyntra shows once. Restore it on a new phone from the welcome screen, and use
   the backup on one phone at a time.
 - If the same backup ends up on two phones, each one now says so and offers Sign out here, which clears this
   phone so it starts over with a new identity. Dismiss the notice instead if the other phone is already gone.
 - The mesh notification now offers Pause 15 min and Pause 1 hour beside Stop, so another app can have
-  Bluetooth for a while without you switching Knit off. The chat list shows when the pause ends, and the mesh
+  Bluetooth for a while without you switching Veyntra off. The chat list shows when the pause ends, and the mesh
   comes back by itself.
 
 ### Changed
 
-- Stop on the mesh notification now keeps the mesh off until you start it again, where opening Knit used to
+- Stop on the mesh notification now keeps the mesh off until you start it again, where opening Veyntra used to
   switch it back on. The chat list says the mesh is stopped and offers Start.
 - Your phone spends less battery on a quiet mesh. Each message crosses a Bluetooth link once rather than
   twice, and a phone left alone with the screen off stops waking its Wi-Fi Aware radio every few seconds.

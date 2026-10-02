@@ -6,7 +6,7 @@ or another phone. This is the normative description of the bytes; the code is `d
 
 ## What it is for
 
-A phone's whole Knit state, moved by the user: the identity (the node id *is* the hash of its key, so
+A phone's whole Veyntra state, moved by the user: the identity (the node id *is* the hash of its key, so
 without the key the person is gone), every contact pin and verification, every group, every message and
 attachment, and the settings. Android's own backup and device-to-device transfer carry none of this by
 design (`res/xml/data_extraction_rules.xml`): the secrets are wrapped under a hardware Keystore key that

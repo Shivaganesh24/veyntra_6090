@@ -7,7 +7,6 @@ import app.getknit.knit.data.payment.PaymentRepository
 import app.getknit.knit.net.InternetGate
 import app.getknit.knit.payment.protocol.PaymentValidationResult
 import app.getknit.knit.payment.settlement.BlockchainSettlementService
-import app.getknit.knit.payment.settlement.MSTBlockchainSettlementService
 import app.getknit.knit.payment.settlement.SettlementResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,7 +46,8 @@ class OfflineReconciliationManager(
             runCatching {
                 internetGate.online.collectLatest { isOnline ->
                     if (isOnline) {
-                        Log.d("OFFPAY", "OFFPAY_INTERNET_AVAILABLE online=true")
+                        Log.i("OFFPAY", "[OFFPAY][NETWORK] validated internet detected")
+                        Log.i("OFFPAY", "[OFFPAY][RECON] reconciliation triggered")
                         reconcilePendingPayments()
                     } else {
                         _state.value = ReconciliationState.IDLE
@@ -63,6 +63,7 @@ class OfflineReconciliationManager(
             runCatching {
                 paymentRepository.events.collect { event ->
                     if (isPaymentTxEvent(event) && internetGate.isOnline()) {
+                        Log.i("OFFPAY", "[OFFPAY][RECON] reconciliation triggered by payment event")
                         reconcilePendingPayments()
                     }
                 }
@@ -97,7 +98,7 @@ class OfflineReconciliationManager(
                 val isOnline = internetGate.isOnline()
                 if (!isOnline) {
                     _state.value = ReconciliationState.IDLE
-                    Log.d("OFFPAY", "OFFPAY_RECONCILIATION_OFFLINE internet=false payment_remains_pending")
+                    Log.d("OFFPAY", "[OFFPAY][RECON] internet=false payment_remains_pending")
                     return@runCatching ReconciliationResult(
                         reconciledCount = 0,
                         failedCount = 0,
@@ -108,7 +109,7 @@ class OfflineReconciliationManager(
                 _state.value = ReconciliationState.SYNCING
 
                 val pendingList = paymentRepository.getPendingSettlementPayments()
-                Log.d("OFFPAY", "OFFPAY_RECONCILIATION_STARTED pendingCount=${pendingList.size}")
+                Log.i("OFFPAY", "[OFFPAY][RECON] pending transaction count = ${pendingList.size}")
 
                 if (pendingList.isEmpty()) {
                     _state.value = ReconciliationState.COMPLETED
@@ -133,7 +134,7 @@ class OfflineReconciliationManager(
                 _state.value = if (failed == 0) ReconciliationState.COMPLETED else ReconciliationState.ERROR
                 ReconciliationResult(reconciled, failed, "Reconciliation process finished.")
             }.getOrElse { e ->
-                Log.e("OFFPAY", "OFFPAY_RECONCILIATION_FAILED reason=${e.message}", e)
+                Log.e("OFFPAY", "[OFFPAY][RECON] reconciliation failed reason=${e.message}", e)
                 _state.value = ReconciliationState.ERROR
                 ReconciliationResult(0, 1, e.message ?: "Reconciliation error")
             }
@@ -143,33 +144,46 @@ class OfflineReconciliationManager(
         payment: PaymentEntity,
         myWalletId: String,
     ): Boolean {
-        Log.d("OFFPAY", "OFFPAY_SETTLEMENT_STARTED transactionId=${payment.transactionId}")
+        Log.i("OFFPAY", "[OFFPAY][SETTLEMENT] attempting transactionId = ${payment.transactionId}")
 
         paymentRepository.markPaymentSubmitted(payment.transactionId)
 
         // 1. Idempotency Check: Verify if transaction was already settled on-chain
         val existingCheck = runCatching { settlementService.verifySettlementStatus(payment.transactionId) }.getOrNull()
         if (existingCheck is SettlementResult.AlreadySettled) {
+            Log.i("OFFPAY", "[OFFPAY][SETTLEMENT] txHash = ${existingCheck.transactionHash} (already settled)")
+            Log.i("OFFPAY", "[OFFPAY][SETTLEMENT] receipt confirmed")
             finalizeSettlement(payment, myWalletId, existingCheck.transactionHash)
             return true
         }
 
-        // 2. Submit settlement request to MST Blockchain
+        // 2. Submit settlement request to MST Blockchain via Relayer
         val submitResult = runCatching { settlementService.submitSettlement(payment) }.getOrNull()
-        val mstService = settlementService as? MSTBlockchainSettlementService
-        val txIdBytes32 =
-            mstService?.transactionIdToBytes32(payment.transactionId)
-                ?: payment.transactionId.hashCode().toUInt().toString(16).padStart(64, '0')
 
-        val txHash =
-            when (submitResult) {
-                is SettlementResult.Success -> submitResult.transactionHash
-                is SettlementResult.AlreadySettled -> submitResult.transactionHash
-                else -> "0x$txIdBytes32"
+        return when (submitResult) {
+            is SettlementResult.Success -> {
+                Log.i("OFFPAY", "[OFFPAY][SETTLEMENT] txHash = ${submitResult.transactionHash}")
+                Log.i("OFFPAY", "[OFFPAY][SETTLEMENT] receipt confirmed")
+                finalizeSettlement(payment, myWalletId, submitResult.transactionHash)
+                true
             }
-
-        finalizeSettlement(payment, myWalletId, txHash)
-        return true
+            is SettlementResult.AlreadySettled -> {
+                Log.i("OFFPAY", "[OFFPAY][SETTLEMENT] txHash = ${submitResult.transactionHash}")
+                Log.i("OFFPAY", "[OFFPAY][SETTLEMENT] receipt confirmed")
+                finalizeSettlement(payment, myWalletId, submitResult.transactionHash)
+                true
+            }
+            is SettlementResult.Failed -> {
+                Log.w("OFFPAY", "[OFFPAY][SETTLEMENT] settlement failed transactionId=${payment.transactionId} reason=${submitResult.reason}")
+                paymentRepository.resetPaymentPending(payment.transactionId)
+                false
+            }
+            else -> {
+                Log.w("OFFPAY", "[OFFPAY][SETTLEMENT] settlement unconfigured or null transactionId=${payment.transactionId}")
+                paymentRepository.resetPaymentPending(payment.transactionId)
+                false
+            }
+        }
     }
 
     private suspend fun finalizeSettlement(
@@ -187,18 +201,10 @@ class OfflineReconciliationManager(
 
         if (isSender) {
             paymentRepository.confirmOutboundSettlement(payment.transactionId, payment.amount, txHash)
-            Log.d("OFFPAY", "OFFPAY_SETTLEMENT_CONFIRMED transactionId=${payment.transactionId} txHash=$txHash")
-            Log.d(
-                "OFFPAY",
-                "OFFPAY_BALANCE_SETTLED transactionId=${payment.transactionId} walletId=$localWalletId amount=${payment.amount}",
-            )
+            Log.i("OFFPAY", "[OFFPAY][DB] transaction marked SETTLED transactionId=${payment.transactionId} txHash=$txHash")
         } else if (isReceiver) {
             paymentRepository.confirmInboundSettlement(payment.transactionId, payment.amount, txHash)
-            Log.d("OFFPAY", "OFFPAY_SETTLEMENT_CONFIRMED transactionId=${payment.transactionId} txHash=$txHash")
-            Log.d(
-                "OFFPAY",
-                "OFFPAY_BALANCE_SETTLED transactionId=${payment.transactionId} walletId=$localWalletId amount=${payment.amount}",
-            )
+            Log.i("OFFPAY", "[OFFPAY][DB] transaction marked SETTLED transactionId=${payment.transactionId} txHash=$txHash")
         }
     }
 

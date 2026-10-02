@@ -98,6 +98,7 @@ class PaymentViewModel(
         amount: Long,
         onSuccess: () -> Unit,
         onError: (String) -> Unit,
+        receiverEvmAddress: String? = null,
     ) {
         viewModelScope.launch {
             runCatching {
@@ -131,6 +132,7 @@ class PaymentViewModel(
                         receiverPublicKey = receiverPublicKey,
                         amount = amount,
                         signRaw = messageCrypto::signRaw,
+                        receiverEvmAddress = receiverEvmAddress,
                     )
 
                 if (result != null) {

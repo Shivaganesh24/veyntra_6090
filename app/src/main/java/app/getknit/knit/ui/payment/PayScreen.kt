@@ -83,6 +83,7 @@ fun PayScreen(
 
     var receiverWalletId by remember { mutableStateOf("") }
     var receiverPublicKey by remember { mutableStateOf("") }
+    var receiverEvmAddress by remember { mutableStateOf("") }
     var receiverName by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("100") }
     var isScanning by remember { mutableStateOf(false) }
@@ -106,6 +107,7 @@ fun PayScreen(
                     } else {
                         receiverWalletId = parsed.walletId
                         receiverPublicKey = parsed.publicKey
+                        receiverEvmAddress = parsed.evmAddress
                         receiverName = parsed.walletId
                         if (parsed.amount > 0L) {
                             amountText = (parsed.amount / 100L).toString()
@@ -323,6 +325,7 @@ fun PayScreen(
                         receiverWalletId = receiverWalletId,
                         receiverPublicKey = if (receiverPublicKey.isNotBlank()) receiverPublicKey else receiverWalletId,
                         amount = amountPaise,
+                        receiverEvmAddress = receiverEvmAddress,
                         onSuccess = {
                             isSubmitting = false
                             scope.launch {

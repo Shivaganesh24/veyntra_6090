@@ -96,6 +96,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Knit">
         <!-- The backup-restore trampoline: a second process that kills the main one and relaunches it, so the
              staged restore is applied by a process that has nothing open (ui/backup/RestartActivity). It is

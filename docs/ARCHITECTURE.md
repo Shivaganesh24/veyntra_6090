@@ -1,13 +1,13 @@
-# Knit — Architecture & Implementation Notes
+# Veyntra — Architecture & Implementation Notes
 
-Detailed design notes for the Knit mesh messenger. For build/contribution rules see
+Detailed design notes for the Veyntra mesh messenger. For build/contribution rules see
 [`../AGENTS.md`](../AGENTS.md); for a user-facing overview see [`../README.md`](../README.md).
 
 ---
 
 ## 1. Overview
 
-Knit is an offline, serverless proximity messenger. Each device is simultaneously a sender, a
+Veyntra is an offline, serverless proximity messenger. Each device is simultaneously a sender, a
 receiver, and a relay. Messages flood across an ad-hoc mesh of nearby phones over **two radios at
 once** — **Wi-Fi Aware (NAN)** and **Bluetooth LE** — hopping device-to-device so they can travel
 beyond direct radio range. There is **no Google Nearby / Google Play services dependency**: the radios

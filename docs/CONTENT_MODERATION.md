@@ -1,13 +1,13 @@
-# Knit — On-device Content Moderation
+# Veyntra — On-device Content Moderation
 
-How Knit limits abusive content — vulgar/abusive **text** and explicit/inappropriate **images** —
+How Veyntra limits abusive content — vulgar/abusive **text** and explicit/inappropriate **images** —
 entirely **on-device**. Moderation never talks to a server (the app's only Internet users are the opt-in
 relay plane and opt-in link previews, both off by default, and neither is a moderation channel), so every
 check runs locally against bundled assets/models; no cloud moderation API (Perspective, Cloud Vision
 SafeSearch, ML Kit cloud) is usable.
 
 > **Mesh threat model.** There is no central moderator. A tampered client can skip any *sender-side*
-> check, so **receiver-side hiding is the real protection**; sender-side is good-citizen UX. Knit
+> check, so **receiver-side hiding is the real protection**; sender-side is good-citizen UX. Veyntra
 > therefore screens on both ends. Receiver-side hiding is user-controlled by the **Content filtering**
 > toggle (default on — see the *User control* note in §1); the recipient can opt out, but a peer can
 > never force unscreened content onto a recipient who leaves it on. No on-device moderation is perfect — classifiers have false

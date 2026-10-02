@@ -78,17 +78,19 @@ fun ReceiveScreen(
 
     val walletId = wallet?.walletId ?: "wallet-unknown"
     val publicKey = wallet?.publicKey ?: ""
+    val evmAddress = wallet?.evmAddress ?: ""
     val displayName = wallet?.displayName ?: "Veyntra Wallet"
 
     var requestedAmountText by remember { mutableStateOf("") }
     val requestedAmountPaise = (requestedAmountText.toLongOrNull() ?: 0L) * 100L
 
     val qrPayload =
-        remember(walletId, publicKey, requestedAmountPaise) {
+        remember(walletId, publicKey, evmAddress, requestedAmountPaise) {
             OffPayQrPayload.encode(
                 walletId = walletId,
                 publicKey = publicKey,
                 amount = requestedAmountPaise,
+                evmAddress = evmAddress,
             )
         }
 

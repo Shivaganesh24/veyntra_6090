@@ -1,4 +1,4 @@
-# Knit — Architecture Review
+# Veyntra — Architecture Review
 
 **Date:** 2026-07-04
 **Status updates (last revised 2026-07-05):** the following have been fixed since the review was written
@@ -30,7 +30,7 @@ load-bearing ones were re-verified against source by hand.
 
 ## 1. Verdict
 
-Knit is a **genuinely strong, unusually well-engineered codebase** — well above the norm for an app of
+Veyntra is a **genuinely strong, unusually well-engineered codebase** — well above the norm for an app of
 this ambition. The hardest thing here (an offline, dual-radio, delay-tolerant, end-to-end-encrypted mesh
 on top of Android's notoriously constrained Wi-Fi Aware stack) is done with real sophistication: a
 frozen, forward-compatible wire format; a clean transport seam that composes two radios; disciplined
