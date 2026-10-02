@@ -389,13 +389,22 @@ object KnitMigrations {
         }
 
     /**
-     * v14 → v15: `wallets.evmAddress` and `payments.receiverEvmAddress` columns for MST Blockchain settlement.
+     * v14 → v15: `wallets` and `payments` tables for MST OfflinePay and Blockchain settlement.
      */
     val MIGRATION_14_15 =
         object : Migration(14, 15) {
             override suspend fun migrate(connection: SQLiteConnection) {
-                connection.execSQL("ALTER TABLE `wallets` ADD COLUMN `evmAddress` TEXT NOT NULL DEFAULT ''")
-                connection.execSQL("ALTER TABLE `payments` ADD COLUMN `receiverEvmAddress` TEXT NOT NULL DEFAULT ''")
+                connection.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `wallets` (`walletId` TEXT NOT NULL, `publicKey` TEXT NOT NULL, `displayName` TEXT NOT NULL, `currency` TEXT NOT NULL, `settledBalance` INTEGER NOT NULL, `pendingInbound` INTEGER NOT NULL, `pendingOutbound` INTEGER NOT NULL, `nextNonce` INTEGER NOT NULL, `isDemo` INTEGER NOT NULL, `evmAddress` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`walletId`))",
+                )
+                connection.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `payments` (`transactionId` TEXT NOT NULL, `senderPublicKey` TEXT NOT NULL, `receiverPublicKey` TEXT NOT NULL, `senderWalletId` TEXT NOT NULL, `receiverWalletId` TEXT NOT NULL, `amount` INTEGER NOT NULL, `currency` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, `nonce` INTEGER NOT NULL, `previousTransactionReference` TEXT, `status` TEXT NOT NULL, `signature` TEXT NOT NULL, `createdOffline` INTEGER NOT NULL, `settlementStatus` TEXT NOT NULL, `blockchainTransactionHash` TEXT, `hopCount` INTEGER NOT NULL, `expiryTime` INTEGER NOT NULL, `receiverEvmAddress` TEXT NOT NULL, PRIMARY KEY(`transactionId`))",
+                )
+                connection.execSQL("CREATE INDEX IF NOT EXISTS `index_payments_senderPublicKey` ON `payments` (`senderPublicKey`)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS `index_payments_receiverPublicKey` ON `payments` (`receiverPublicKey`)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS `index_payments_status` ON `payments` (`status`)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS `index_payments_nonce` ON `payments` (`nonce`)")
+                connection.execSQL("CREATE INDEX IF NOT EXISTS `index_payments_timestamp` ON `payments` (`timestamp`)")
             }
         }
 

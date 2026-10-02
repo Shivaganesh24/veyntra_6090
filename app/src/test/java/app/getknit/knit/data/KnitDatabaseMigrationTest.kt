@@ -46,7 +46,7 @@ class KnitDatabaseMigrationTest {
         )
 
     @Test
-    fun `the current schema (v14) creates and opens from the exported JSON`() =
+    fun `the current schema (v15) creates and opens from the exported JSON`() =
         runTest {
             helper.createDatabase(CURRENT_VERSION).close()
         }
@@ -605,6 +605,22 @@ class KnitDatabaseMigrationTest {
             }
         }
 
+    @Test
+    fun `migrate 14 to 15 creates wallets and payments tables`() =
+        runTest {
+            helper.createDatabase(14)
+            helper.runMigrationsAndValidate(15, listOf(KnitMigrations.MIGRATION_14_15)).use { c ->
+                c.execSQL(
+                    "INSERT INTO wallets (walletId, publicKey, displayName, currency, settledBalance, pendingInbound, pendingOutbound, nextNonce, isDemo, evmAddress, updatedAt) " +
+                        "VALUES ('w1','pk1','Ann','INR',100,0,0,1,1,'',1)",
+                )
+                c.prepare("SELECT evmAddress FROM wallets WHERE walletId = 'w1'").use { s ->
+                    assertTrue(s.step())
+                    assertEquals("", s.getText(0))
+                }
+            }
+        }
+
     private fun SQLiteConnection.matches(match: String): List<String> =
         buildList {
             prepare(
@@ -621,7 +637,7 @@ class KnitDatabaseMigrationTest {
          * KnitDatabase `@Database(version = …)` — bump alongside the DB (its retention is CLASS, so the version
          * can't be read reflectively). A missing schemas/<db>/<version>.json fails the smoke test.
          */
-        const val CURRENT_VERSION = 14
+        const val CURRENT_VERSION = 15
 
         /** The v11 column list, as MIGRATION_10_11's test seeds it. */
         const val INSERT_V11 =
