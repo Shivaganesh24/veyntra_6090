@@ -17,13 +17,6 @@ Phones talk straight to each other over Wi-Fi Aware and Bluetooth LE, relaying f
 [![Latest release](https://img.shields.io/github/v/release/veyntra/veyntra?label=release&color=E55E4C)](https://github.com/veyntra/veyntra/releases/latest)
 [![Veyntra changelog on whatsnew.fyi](https://whatsnew.fyi/product/veyntra/badge.svg)](https://whatsnew.fyi/product/veyntra)
 
-<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01_chat-nearby.png"
-     alt="Veyntra's Nearby broadcast room: a header reading &quot;Connected to 3 mesh nodes&quot;, a line carried in over a LoRa board, a photo attachment, and a link-preview card the sender fetched and sent with the link"
-     width="300">
-
-<sub>The public <b>Nearby</b> room, relayed over Wi-Fi Aware + BLE with no internet — photos, link previews,
-and a line that came the long way over a LoRa radio.</sub>
-
 </div>
 
 ---
@@ -71,7 +64,6 @@ beyond an Android phone, though it will happily use a Meshtastic board if you ha
 - [Roadmap](#-roadmap)
 - [Security note](#-security-note)
 - [Support](#-support)
-- [License](#-license)
 
 > [!NOTE]
 > Veyntra is a complete messenger: a **"Nearby" public broadcast room**, **1:1 direct messages**, and
@@ -505,35 +497,6 @@ security problems.
 ## 💛 Support
 
 Veyntra is free and open source, with no ads, no tracking, and nothing to sell you. Reporting bugs and telling people it exists helps immensely.
-
-## 📄 License
-
-Veyntra is free software, licensed under the **GNU General Public License v3.0 or later**
-([`COPYING`](COPYING)).
-
-```
-Copyright (C) 2026 Jeffrey Walter Mixon
-
-This program is free software: you can redistribute it and/or modify it under the terms of the
-GNU General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not,
-see <https://www.gnu.org/licenses/>.
-```
-
-Contributions are welcome under the same license — see [`CONTRIBUTING.md`](CONTRIBUTING.md), which
-also sets out the (deliberately modest) **support expectations**.
-
-Veyntra redistributes third-party open-source libraries, all under GPL-compatible licenses (Apache-2.0,
-BSD, MIT) and with no Google Play services; see [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) for
-the full component list and their licenses. The same list ships in the app (**Open-source licenses**, from
-the menu on the Settings screen) with every license text readable offline, and a test pins it to both
-that file and the release classpath so the two cannot drift.
 
 ### Bundled model & data attribution
 
