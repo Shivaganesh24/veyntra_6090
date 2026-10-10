@@ -94,17 +94,19 @@ fun TransactionScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = VeyntraBg,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = VeyntraBg,
+                    ),
             )
         },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(16.dp),
         ) {
             if (payments.isEmpty()) {
                 Box(
@@ -142,9 +144,10 @@ fun FullTransactionCard(
     val formattedDate = dateFormat.format(Date(payment.timestamp))
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = VeyntraCardBg),
         border = BorderStroke(1.dp, VeyntraCardBorder),
@@ -184,24 +187,27 @@ fun FullTransactionCard(
             ) {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = when (payment.status) {
-                        "SETTLED" -> VeyntraGreenSuccess.copy(alpha = 0.15f)
-                        "OFFLINE_SENT", "PENDING_SETTLEMENT" -> VeyntraOrangeWarning.copy(alpha = 0.15f)
-                        else -> Color(0xFFFEE2E2)
-                    },
+                    color =
+                        when (payment.status) {
+                            "SETTLED" -> VeyntraGreenSuccess.copy(alpha = 0.15f)
+                            "OFFLINE_SENT", "PENDING_SETTLEMENT" -> VeyntraOrangeWarning.copy(alpha = 0.15f)
+                            else -> Color(0xFFFEE2E2)
+                        },
                 ) {
                     Text(
-                        text = when (payment.status) {
-                            "SETTLED" -> "✓ Successfully Settled on MST"
-                            "PENDING_SETTLEMENT", "RECEIVED" -> "⏳ Pending Settlement"
-                            "OFFLINE_SENT" -> "⏳ Sent Offline — Pending Settlement"
-                            else -> payment.status
-                        },
-                        color = when (payment.status) {
-                            "SETTLED" -> VeyntraGreenSuccess
-                            "OFFLINE_SENT", "PENDING_SETTLEMENT" -> VeyntraOrangeWarning
-                            else -> Color(0xFFDC2626)
-                        },
+                        text =
+                            when (payment.status) {
+                                "SETTLED" -> "✓ Successfully Settled on MST"
+                                "PENDING_SETTLEMENT", "RECEIVED" -> "⏳ Pending Settlement"
+                                "OFFLINE_SENT" -> "⏳ Sent Offline — Pending Settlement"
+                                else -> payment.status
+                            },
+                        color =
+                            when (payment.status) {
+                                "SETTLED" -> VeyntraGreenSuccess
+                                "OFFLINE_SENT", "PENDING_SETTLEMENT" -> VeyntraOrangeWarning
+                                else -> Color(0xFFDC2626)
+                            },
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),

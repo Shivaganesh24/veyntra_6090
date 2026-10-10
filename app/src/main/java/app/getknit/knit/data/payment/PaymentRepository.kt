@@ -90,7 +90,10 @@ class PaymentRepository(
     /**
      * Derives a deterministic EVM address for a wallet using the device's key bytes.
      */
-    private fun deriveEvmAddressForWallet(walletId: String, publicKey: String): String {
+    private fun deriveEvmAddressForWallet(
+        walletId: String,
+        publicKey: String,
+    ): String {
         val seed = (walletId + "|" + publicKey).toByteArray(StandardCharsets.UTF_8)
         return EvmAddress.deriveEvmAddress(seed)
     }
@@ -264,7 +267,10 @@ class PaymentRepository(
             )
         paymentDao.insertPayment(entity)
 
-        Log.d("OFFPAY", "OFFPAY_SEND_CREATED txId=$txId sender=${currentWallet.walletId} receiver=$receiverWalletId evm=$finalReceiverEvmAddress")
+        Log.d(
+            "OFFPAY",
+            "OFFPAY_SEND_CREATED txId=$txId sender=${currentWallet.walletId} receiver=$receiverWalletId evm=$finalReceiverEvmAddress",
+        )
         Log.d("OFFPAY", "OFFPAY_SEND_RESERVED transactionId=$txId reservedAmount=$amount")
 
         _events.tryEmit(PaymentEvent.Created(entity))

@@ -611,7 +611,8 @@ class KnitDatabaseMigrationTest {
             helper.createDatabase(14)
             helper.runMigrationsAndValidate(15, listOf(KnitMigrations.MIGRATION_14_15)).use { c ->
                 c.execSQL(
-                    "INSERT INTO wallets (walletId, publicKey, displayName, currency, settledBalance, pendingInbound, pendingOutbound, nextNonce, isDemo, evmAddress, updatedAt) " +
+                    "INSERT INTO wallets (walletId, publicKey, displayName, currency, settledBalance, " +
+                        "pendingInbound, pendingOutbound, nextNonce, isDemo, evmAddress, updatedAt) " +
                         "VALUES ('w1','pk1','Ann','INR',100,0,0,1,1,'',1)",
                 )
                 c.prepare("SELECT evmAddress FROM wallets WHERE walletId = 'w1'").use { s ->

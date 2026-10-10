@@ -35,13 +35,14 @@ class MstRpcInspectTest {
     }
 
     @Test
-    fun inspectNetworkAndRpc() = runBlocking {
-        val service = MSTBlockchainSettlementService()
-        val authOnChain = service.getSettlementAuthorityOnChain()
-        assertNotNull(authOnChain)
-        assertEquals("0x29e55e6691803ab357b6777e6a94ce5b086fbbed", authOnChain?.lowercase())
+    fun inspectNetworkAndRpc() =
+        runBlocking {
+            val service = MSTBlockchainSettlementService()
+            val authOnChain = service.getSettlementAuthorityOnChain()
+            assertNotNull(authOnChain)
+            assertEquals("0x29e55e6691803ab357b6777e6a94ce5b086fbbed", authOnChain?.lowercase())
 
-        val status = service.verifySettlementStatus("tx-test-nonexistent-123")
-        assertTrue(status is SettlementResult.Failed)
-    }
+            val status = service.verifySettlementStatus("tx-test-nonexistent-123")
+            assertTrue(status is SettlementResult.Failed)
+        }
 }

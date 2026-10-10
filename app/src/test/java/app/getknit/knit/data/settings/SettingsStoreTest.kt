@@ -1,6 +1,12 @@
 package app.getknit.knit.data.settings
 
+import androidx.datastore.core.FileStorage
+import androidx.datastore.core.Storage
+import androidx.datastore.core.StorageConnection
+import androidx.datastore.core.WriteScope
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.PreferencesFileSerializer
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.getknit.knit.data.emoji.RecentReactions
@@ -19,13 +25,6 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
-import androidx.datastore.core.FileStorage
-import androidx.datastore.core.Storage
-import androidx.datastore.core.StorageConnection
-import androidx.datastore.core.WriteScope
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.PreferencesFileSerializer
-
 private class WindowsSafeStorage(
     private val produceFile: () -> File,
 ) : Storage<Preferences> {
@@ -37,12 +36,13 @@ private class WindowsSafeStorage(
         return object : StorageConnection<Preferences> by connection {
             override suspend fun writeScope(block: suspend WriteScope<Preferences>.() -> Unit) {
                 connection.writeScope {
-                    val innerScope = object : WriteScope<Preferences> by this {
-                        override suspend fun writeData(value: Preferences) {
-                            file.delete()
-                            this@writeScope.writeData(value)
+                    val innerScope =
+                        object : WriteScope<Preferences> by this {
+                            override suspend fun writeData(value: Preferences) {
+                                file.delete()
+                                this@writeScope.writeData(value)
+                            }
                         }
-                    }
                     block(innerScope)
                 }
             }

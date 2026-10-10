@@ -67,26 +67,29 @@ fun TransactionDetailsDialog(
     val formattedDate = dateFormat.format(Date(payment.timestamp))
 
     val isSettled = payment.status == "SETTLED"
-    val statusText = when (payment.status) {
-        "SETTLED" -> "✓ Successfully Settled on MST Blockchain"
-        "PENDING_SETTLEMENT", "RECEIVED", "OFFLINE_SENT" -> "⏳ Pending MST Blockchain Settlement"
-        "SUBMITTED" -> "⏳ Settling on MST Blockchain..."
-        else -> "Failed / Conflict"
-    }
+    val statusText =
+        when (payment.status) {
+            "SETTLED" -> "✓ Successfully Settled on MST Blockchain"
+            "PENDING_SETTLEMENT", "RECEIVED", "OFFLINE_SENT" -> "⏳ Pending MST Blockchain Settlement"
+            "SUBMITTED" -> "⏳ Settling on MST Blockchain..."
+            else -> "Failed / Conflict"
+        }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(1.dp, VeyntraCardBorder, RoundedCornerShape(24.dp)),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, VeyntraCardBorder, RoundedCornerShape(24.dp)),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = VeyntraCardBg),
             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 // Header

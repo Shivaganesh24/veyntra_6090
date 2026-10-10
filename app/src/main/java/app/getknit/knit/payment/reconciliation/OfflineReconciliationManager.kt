@@ -167,17 +167,23 @@ class OfflineReconciliationManager(
                 finalizeSettlement(payment, myWalletId, submitResult.transactionHash)
                 true
             }
+
             is SettlementResult.AlreadySettled -> {
                 Log.i("OFFPAY", "[OFFPAY][SETTLEMENT] txHash = ${submitResult.transactionHash}")
                 Log.i("OFFPAY", "[OFFPAY][SETTLEMENT] receipt confirmed")
                 finalizeSettlement(payment, myWalletId, submitResult.transactionHash)
                 true
             }
+
             is SettlementResult.Failed -> {
-                Log.w("OFFPAY", "[OFFPAY][SETTLEMENT] settlement failed transactionId=${payment.transactionId} reason=${submitResult.reason}")
+                Log.w(
+                    "OFFPAY",
+                    "[OFFPAY][SETTLEMENT] settlement failed transactionId=${payment.transactionId} reason=${submitResult.reason}",
+                )
                 paymentRepository.resetPaymentPending(payment.transactionId)
                 false
             }
+
             else -> {
                 Log.w("OFFPAY", "[OFFPAY][SETTLEMENT] settlement unconfigured or null transactionId=${payment.transactionId}")
                 paymentRepository.resetPaymentPending(payment.transactionId)

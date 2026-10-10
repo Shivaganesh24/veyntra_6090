@@ -11,7 +11,6 @@ private const val ZERO_EVM_ADDR = "0x0000000000000000000000000000000000000000"
  * EVM Address validation and generation utilities for MST Blockchain.
  */
 object EvmAddress {
-
     /**
      * Strict validation for 20-byte EVM/MST hex addresses:
      * - Must start with "0x"

@@ -152,17 +152,19 @@ class MSTBlockchainSettlementService(
             )
         }
 
-        val receiptResult = waitForTransactionReceipt(submissionTxHash)
-            ?: return SettlementResult.Failed(
-                "Transaction $submissionTxHash unconfirmed on MST Blockchain",
-                isPermanent = false,
-            )
+        val receiptResult =
+            waitForTransactionReceipt(submissionTxHash)
+                ?: return SettlementResult.Failed(
+                    "Transaction $submissionTxHash unconfirmed on MST Blockchain",
+                    isPermanent = false,
+                )
 
-        val blockNum = receiptResult.blockNumber
-            ?: return SettlementResult.Failed(
-                "Transaction $submissionTxHash missing block number in receipt",
-                isPermanent = false,
-            )
+        val blockNum =
+            receiptResult.blockNumber
+                ?: return SettlementResult.Failed(
+                    "Transaction $submissionTxHash missing block number in receipt",
+                    isPermanent = false,
+                )
 
         return SettlementResult.Success(
             transactionHash = submissionTxHash,
@@ -195,7 +197,8 @@ class MSTBlockchainSettlementService(
         return runCatching {
             Log.i("OFFPAY", "[OFFPAY][SETTLEMENT] calling relayer url=$relayerUrl")
             val jsonPayload =
-                """{
+                """
+                {
                     "txIdBytes32":"$txIdBytes32",
                     "receiverAddress":"$receiverEvmAddress",
                     "amount":${payment.amount},
@@ -206,15 +209,17 @@ class MSTBlockchainSettlementService(
                     "signature":"${payment.signature}",
                     "contractAddress":"$contractAddress",
                     "callData":"$callData"
-                }""".trimIndent().replace("\n", "").replace(" ", "")
+                }
+                """.trimIndent().replace("\n", "").replace(" ", "")
 
             val responseStr = executeRpcRequest(relayerUrl, jsonPayload)
             Log.i("OFFPAY", "[OFFPAY][SETTLEMENT] relayer response = $responseStr")
             if (responseStr.isNullOrBlank()) return null
 
-            val txHash = extractJsonField(responseStr, "txHash")
-                ?: extractJsonField(responseStr, "transactionHash")
-                ?: extractJsonField(responseStr, "result")
+            val txHash =
+                extractJsonField(responseStr, "txHash")
+                    ?: extractJsonField(responseStr, "transactionHash")
+                    ?: extractJsonField(responseStr, "result")
             if (!txHash.isNullOrBlank() && txHash.startsWith("0x")) txHash else null
         }.getOrElse { e ->
             Log.e("OFFPAY", "[OFFPAY][SETTLEMENT] relayer request failed: ${e.message}", e)
@@ -332,7 +337,10 @@ class MSTBlockchainSettlementService(
         return json.substring(start, end).trim().removeSurrounding("\"")
     }
 
-    private fun extractJsonField(json: String, fieldName: String): String? {
+    private fun extractJsonField(
+        json: String,
+        fieldName: String,
+    ): String? {
         val key = "\"$fieldName\":"
         val idx = json.indexOf(key)
         if (idx < 0) return null
