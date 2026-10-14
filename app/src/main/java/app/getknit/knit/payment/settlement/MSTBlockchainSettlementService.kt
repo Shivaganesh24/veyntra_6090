@@ -30,6 +30,7 @@ class MSTBlockchainSettlementService(
     private val contractAddress: String = MstBlockchainConfig.CONTRACT_ADDRESS,
     private val evmWalletAddress: String = MstBlockchainConfig.RELAYER_ADDRESS,
     private val relayerUrl: String = MstBlockchainConfig.RELAYER_URL,
+    private val relayerAuthSecret: String = MstBlockchainConfig.RELAYER_AUTH_SECRET,
     private val networkName: String = "MST Testnet",
 ) : BlockchainSettlementService {
     override fun isConfigured(): Boolean = rpcUrl.isNotBlank() && contractAddress.isNotBlank() && chainId > 0L
@@ -283,6 +284,9 @@ class MSTBlockchainSettlementService(
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 connection.setRequestProperty("User-Agent", "Knit/1.0 (Android)")
                 connection.setRequestProperty("Accept", "application/json")
+                if (relayerAuthSecret.isNotBlank()) {
+                    connection.setRequestProperty("X-Relayer-Secret", relayerAuthSecret)
+                }
                 connection.connectTimeout = HTTP_TIMEOUT_MS
                 connection.readTimeout = HTTP_TIMEOUT_MS
                 connection.doOutput = true

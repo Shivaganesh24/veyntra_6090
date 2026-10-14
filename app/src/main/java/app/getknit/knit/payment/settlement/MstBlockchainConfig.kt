@@ -10,6 +10,7 @@ data class MstNetworkConfig(
     val contractAddress: String = MstBlockchainConfig.CONTRACT_ADDRESS,
     val relayerAddress: String = MstBlockchainConfig.RELAYER_ADDRESS,
     val relayerUrl: String = MstBlockchainConfig.RELAYER_URL,
+    val relayerAuthSecret: String = MstBlockchainConfig.RELAYER_AUTH_SECRET,
     val explorerBaseUrl: String = MstBlockchainConfig.EXPLORER_BASE_URL,
     val nativeCurrencySymbol: String = MstBlockchainConfig.NATIVE_CURRENCY_SYMBOL,
     val networkName: String = "MST Testnet",
@@ -27,6 +28,7 @@ object MstBlockchainConfig {
     const val CONTRACT_ADDRESS = "0x417404c95724d8E4aF6fb368CA18196FC4bEA143"
     const val RELAYER_ADDRESS = "0x29e55e6691803ab357b6777e6a94ce5b086fbbed"
     const val RELAYER_URL = "http://10.0.2.2:3000/relayer"
+    const val RELAYER_AUTH_SECRET = ""
     const val EXPLORER_BASE_URL = "https://testnet.mstscan.com"
     const val NATIVE_CURRENCY_SYMBOL = "tMSTC"
     const val REQUIRED_CONFIRMATIONS = 1

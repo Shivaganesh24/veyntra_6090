@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const { ethers } = require('ethers');
 
 const PORT = process.env.PORT || 3000;
@@ -18,7 +19,7 @@ const ABI = [
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '100kb' })); // Rate/Size limit
 
 const provider = new ethers.JsonRpcProvider(MST_RPC_URL, {
   chainId: MST_CHAIN_ID,
@@ -68,6 +69,88 @@ function validateAndFormatBytes32(raw) {
     return null;
   }
   return '0x' + clean;
+}
+
+// Converts a transaction ID string to SHA-256 32-byte hex representation matching Android client
+function transactionIdToBytes32(transactionId) {
+  if (!transactionId || typeof transactionId !== 'string') return null;
+  const hash = crypto.createHash('sha256').update(transactionId, 'utf8').digest('hex');
+  return '0x' + hash;
+}
+
+// Constructs canonical signing bytes matching PaymentSigner.kt exactly
+function canonicalSigningBytes(payload) {
+  const label = Buffer.from('mst/payment/v1', 'utf8');
+  const txId = Buffer.from(payload.transactionId || '', 'utf8');
+  const senderPk = Buffer.from(payload.senderPublicKey || '', 'utf8');
+  const receiverPk = Buffer.from(payload.receiverPublicKey || '', 'utf8');
+  const senderWallet = Buffer.from(payload.senderWalletId || '', 'utf8');
+  const receiverWallet = Buffer.from(payload.receiverWalletId || '', 'utf8');
+
+  const amountBuf = Buffer.alloc(8);
+  amountBuf.writeBigInt64BE(BigInt(payload.amount || 0), 0);
+
+  const currency = Buffer.from(payload.currency || 'INR', 'utf8');
+
+  const timestampBuf = Buffer.alloc(8);
+  timestampBuf.writeBigInt64BE(BigInt(payload.timestamp || 0), 0);
+
+  const nonceBuf = Buffer.alloc(8);
+  nonceBuf.writeBigInt64BE(BigInt(payload.nonce || 0), 0);
+
+  const prevRef = Buffer.from(payload.previousTransactionReference || '', 'utf8');
+
+  const offlineBuf = Buffer.alloc(1);
+  offlineBuf.writeUInt8(payload.createdOffline !== false ? 1 : 0, 0);
+
+  const expiryBuf = Buffer.alloc(8);
+  expiryBuf.writeBigInt64BE(BigInt(payload.expiryTime || 0), 0);
+
+  const receiverEvm = Buffer.from(payload.receiverEvmAddress || '', 'utf8');
+
+  return Buffer.concat([
+    label,
+    txId,
+    senderPk,
+    receiverPk,
+    senderWallet,
+    receiverWallet,
+    amountBuf,
+    currency,
+    timestampBuf,
+    nonceBuf,
+    prevRef,
+    offlineBuf,
+    expiryBuf,
+    receiverEvm
+  ]);
+}
+
+// Verifies Ed25519 signature over PaymentPayload made by senderPublicKey
+function verifyEd25519Signature(payload, signatureBase64, senderPublicKeyBase64) {
+  try {
+    if (!signatureBase64 || !senderPublicKeyBase64) return false;
+    const rawPublicKey = Buffer.from(senderPublicKeyBase64, 'base64');
+    const signature = Buffer.from(signatureBase64, 'base64');
+    if (rawPublicKey.length !== 32 || signature.length !== 64) return false;
+
+    const data = canonicalSigningBytes(payload);
+
+    // Ed25519 SPKI DER prefix (12 bytes): 302a300506032b6570032100
+    const spkiHeader = Buffer.from('302a300506032b6570032100', 'hex');
+    const spkiBuffer = Buffer.concat([spkiHeader, rawPublicKey]);
+
+    const publicKeyObj = crypto.createPublicKey({
+      key: spkiBuffer,
+      format: 'der',
+      type: 'spki'
+    });
+
+    return crypto.verify(null, data, publicKeyObj, signature);
+  } catch (err) {
+    console.warn(`[Ed25519 Verification Failed] ${err.message}`);
+    return false;
+  }
 }
 
 // GET /health
@@ -128,35 +211,40 @@ app.get('/diagnostics', async (req, res) => {
 // POST /relayer
 app.post('/relayer', async (req, res) => {
   try {
-    // Relayer Security Guard Check (if secret configured)
+    // 1. Relayer Security Guard Check (if shared secret is configured on server)
     if (RELAYER_AUTH_SECRET) {
       const reqSecret = req.headers['x-relayer-secret'] || req.headers['authorization'];
       if (!reqSecret || reqSecret !== RELAYER_AUTH_SECRET) {
-        return res.status(401).json({ status: 'FAILED', error: 'Unauthorized relayer request' });
+        return res.status(401).json({ status: 'FAILED', error: 'Unauthorized relayer request: Invalid or missing authentication credential' });
       }
     }
-    // TODO: In production, verify Ed25519 signature over PaymentPayload from Android client before broadcasting gas-spending transactions.
 
     const body = req.body || {};
+    const payment = body.payment || body;
 
-    const rawTxId = body.txIdBytes32 || body.transactionId || (body.payment && body.payment.transactionId);
-    const rawReceiver = body.receiverAddress || (body.payment && body.payment.receiverAddress);
-    const rawAmount = body.amount !== undefined ? body.amount : (body.payment && body.payment.amount);
-    const rawNonce = body.nonce !== undefined ? body.nonce : (body.payment && body.payment.nonce);
+    const rawTxId = payment.txIdBytes32 || payment.transactionId;
+    const rawReceiver = payment.receiverAddress || payment.receiverEvmAddress;
+    const rawAmount = payment.amount;
+    const rawNonce = payment.nonce;
 
-    // 1. Strict txIdBytes32 Validation: MUST be exactly 32 bytes / 64 hex characters
+    // 2. Strict txIdBytes32 Validation & Derivation
     if (!rawTxId) {
-      return res.status(400).json({ status: 'FAILED', error: 'Missing txIdBytes32' });
+      return res.status(400).json({ status: 'FAILED', error: 'Missing payment transaction ID' });
     }
-    const txIdBytes32 = validateAndFormatBytes32(rawTxId);
+
+    let txIdBytes32 = validateAndFormatBytes32(rawTxId);
+    if (!txIdBytes32) {
+      // Derive from transactionId string if raw string was passed
+      txIdBytes32 = transactionIdToBytes32(rawTxId);
+    }
     if (!txIdBytes32) {
       return res.status(400).json({
         status: 'FAILED',
-        error: `Invalid txIdBytes32 (${rawTxId}): Must be exactly 32 bytes (64 hexadecimal characters)`
+        error: `Invalid transactionId (${rawTxId}): Must be a valid string or 32-byte hex ID`
       });
     }
 
-    // 2. Strict receiverAddress Validation: MUST be a genuine 20-byte EVM address starting with 0x
+    // 3. Strict receiverAddress Validation: MUST be a genuine 20-byte EVM address starting with 0x
     if (!rawReceiver || typeof rawReceiver !== 'string' || !rawReceiver.startsWith('0x') || !ethers.isAddress(rawReceiver)) {
       return res.status(400).json({
         status: 'FAILED',
@@ -165,7 +253,7 @@ app.post('/relayer', async (req, res) => {
     }
     const receiverAddress = ethers.getAddress(rawReceiver);
 
-    // 3. Validate amount > 0
+    // 4. Validate amount > 0
     let amountBig;
     try {
       amountBig = BigInt(rawAmount);
@@ -174,7 +262,7 @@ app.post('/relayer', async (req, res) => {
       return res.status(400).json({ status: 'FAILED', error: `Invalid amount (${rawAmount}): ${e.message}` });
     }
 
-    // 4. Validate nonce >= 0
+    // 5. Validate nonce >= 0
     let nonceBig;
     try {
       nonceBig = BigInt(rawNonce);
@@ -183,9 +271,30 @@ app.post('/relayer', async (req, res) => {
       return res.status(400).json({ status: 'FAILED', error: `Invalid nonce (${rawNonce}): ${e.message}` });
     }
 
+    // 6. Ed25519 Payer Signature Verification (if signature & senderPublicKey provided)
+    if (payment.signature && payment.senderPublicKey) {
+      const isSignatureValid = verifyEd25519Signature(payment, payment.signature, payment.senderPublicKey);
+      if (!isSignatureValid) {
+        console.warn(`[Relayer Rejected] Invalid Ed25519 signature for payment txId=${payment.transactionId || txIdBytes32}`);
+        return res.status(400).json({
+          status: 'FAILED',
+          error: 'Payment payload signature verification failed: Invalid payer Ed25519 signature'
+        });
+      }
+      console.log(`[Relayer Verified] Ed25519 Payer Signature VALID for txId=${payment.transactionId || txIdBytes32}`);
+    }
+
+    // 7. Payload Expiry Check
+    if (payment.expiryTime && Number(payment.expiryTime) < Date.now()) {
+      return res.status(422).json({
+        status: 'FAILED',
+        error: 'Payment payload has expired'
+      });
+    }
+
     console.log(`[Relayer Request] txId=${txIdBytes32} receiver=${receiverAddress} amount=${amountBig.toString()} nonce=${nonceBig.toString()}`);
 
-    // 5. Idempotency Check: Verify if transaction was already settled on-chain using contract getter isSettled(bytes32)
+    // 8. Idempotency Check: Verify if transaction was already settled on-chain using contract getter isSettled(bytes32)
     let isSettledOnChain = false;
     try {
       isSettledOnChain = await contract.isSettled(txIdBytes32);
@@ -201,7 +310,7 @@ app.post('/relayer', async (req, res) => {
       });
     }
 
-    // 6. Check wallet readiness
+    // 9. Check wallet readiness
     if (!wallet) {
       return res.status(503).json({
         status: 'FAILED',
@@ -209,12 +318,12 @@ app.post('/relayer', async (req, res) => {
       });
     }
 
-    // 7. Submit signed transaction via contract
+    // 10. Submit signed transaction via contract
     console.log(`[Relayer Submitting] Sending settlePayment transaction to MST Testnet...`);
     const tx = await contract.settlePayment(txIdBytes32, receiverAddress, amountBig, nonceBig);
     console.log(`[Relayer Broadcast] Transaction hash: ${tx.hash}. Waiting for confirmation...`);
 
-    // 8. Wait for REAL transaction receipt
+    // 11. Wait for REAL transaction receipt
     const receipt = await tx.wait(1);
 
     if (!receipt || receipt.status !== 1) {
@@ -242,14 +351,25 @@ app.post('/relayer', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`====================================================`);
-  console.log(` MST Blockchain Testnet Relayer Backend Running`);
-  console.log(` Port: ${PORT}`);
-  console.log(` RPC: ${MST_RPC_URL}`);
-  console.log(` Chain ID: ${MST_CHAIN_ID}`);
-  console.log(` Contract: ${MST_CONTRACT_ADDRESS}`);
-  console.log(` Authority: ${EXPECTED_AUTHORITY}`);
-  console.log(` Signer: ${wallet ? 'Configured (' + wallet.address + ')' : 'Not Configured (Read-Only)'}`);
-  console.log(`====================================================`);
-});
+// Export helper functions for automated testing
+module.exports = {
+  app,
+  canonicalSigningBytes,
+  verifyEd25519Signature,
+  validateAndFormatBytes32,
+  transactionIdToBytes32
+};
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`====================================================`);
+    console.log(` MST Blockchain Testnet Relayer Backend Running`);
+    console.log(` Port: ${PORT}`);
+    console.log(` RPC: ${MST_RPC_URL}`);
+    console.log(` Chain ID: ${MST_CHAIN_ID}`);
+    console.log(` Contract: ${MST_CONTRACT_ADDRESS}`);
+    console.log(` Authority: ${EXPECTED_AUTHORITY}`);
+    console.log(` Signer: ${wallet ? 'Configured (' + wallet.address + ')' : 'Not Configured (Read-Only)'}`);
+    console.log(`====================================================`);
+  });
+}
